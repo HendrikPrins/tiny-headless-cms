@@ -93,6 +93,40 @@ class Database {
         return (int)$this->connection->lastInsertId();
     }
 
+    // New: list all content types (collections and singletons)
+    public function getContentTypes()
+    {
+        $sql = "
+            SELECT
+                ct.id,
+                ct.name,
+                ct.is_singleton,
+                (SELECT COUNT(*) FROM fields f WHERE f.content_type_id = ct.id)   AS fields_count,
+                (SELECT COUNT(*) FROM entries e WHERE e.content_type_id = ct.id)  AS entries_count
+            FROM content_types ct
+            ORDER BY ct.name
+        ";
+        $stmt = $this->connection->query($sql);
+        return $stmt->fetchAll();
+    }
+
+    // New: create content type with singleton flag
+    public function createContentType(string $name, bool $isSingleton): int
+    {
+        $name = trim($name);
+        if ($name === '') {
+            throw new InvalidArgumentException('Name is required');
+        }
+        $is = $isSingleton ? 1 : 0;
+        $stmt = $this->connection->prepare(
+            "INSERT INTO content_types (name, is_singleton) VALUES (:name, :is_singleton)"
+        );
+        $stmt->bindParam(':name', $name);
+        $stmt->bindParam(':is_singleton', $is, PDO::PARAM_INT);
+        $stmt->execute();
+        return (int)$this->connection->lastInsertId();
+    }
+
     // Fetch a single collection/content type by id
     public function getCollectionById(int $id)
     {
@@ -169,3 +203,4 @@ class Database {
     }
 
 }
+

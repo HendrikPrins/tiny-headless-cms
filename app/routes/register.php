@@ -8,7 +8,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $errors = [];
 
-    if (empty($username) || empty($password) || empty($password_confirm)) {
+    if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
+        $errors[] = 'Invalid request.';
+    } elseif (empty($username) || empty($password) || empty($password_confirm)) {
         $errors[] = "All fields are required.";
     } elseif (strlen($password) < 6) {
         $errors[] = "Password must be at least 6 characters long.";
@@ -33,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form method="post" action="admin.php" class="form-container">
         <h1>Register</h1>
         <p>Please create your admin account via the form below. Any additional users can be created later from the dashboard.</p>
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>">
         <input type="text" name="username" placeholder="Username" required value="<?php echo htmlspecialchars($_POST['username'] ?? '', ENT_QUOTES); ?>">
         <input type="password" name="password" placeholder="Password" required>
         <input type="password" name="password_confirm" placeholder="Confirm Password" required>

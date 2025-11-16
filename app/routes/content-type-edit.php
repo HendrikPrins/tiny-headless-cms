@@ -11,14 +11,14 @@ if (!empty($_SESSION['flash_messages']) && is_array($_SESSION['flash_messages'])
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) {
-    echo '<h1>Collection not found</h1>';
+    echo '<h1>Content type not found</h1>';
     return;
 }
 
 $db = Database::getInstance();
 $collection = $db->getCollectionById($id);
 if (!$collection) {
-    echo '<h1>Collection not found</h1>';
+    echo '<h1>Content type not found</h1>';
     return;
 }
 
@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Success - PRG
                     $_SESSION['flash_messages'] = ['Fields saved.'];
                     while (ob_get_level() > 0) { ob_end_clean(); }
-                    header('Location: admin.php?page=collections-edit&id=' . $id, true, 303);
+                    header('Location: admin.php?page=content-type-edit&id=' . $id, true, 303);
                     exit;
                 } catch (InvalidArgumentException $e) {
                     $errors[] = $e->getMessage();
@@ -108,8 +108,9 @@ $jsFields = array_map(function($f){
 
 ?>
 
-<h1>Edit Collection: <?= htmlspecialchars($collection['name'], ENT_QUOTES, 'UTF-8') ?></h1>
-<p><a href="?page=collections">← Back to collections</a></p>
+<h1>Edit Content Type: <?= htmlspecialchars($collection['name'], ENT_QUOTES, 'UTF-8') ?></h1>
+<p><strong>Type:</strong> <?= $collection['is_singleton'] ? 'Singleton' : 'Collection' ?> (read-only)</p>
+<p><a href="?page=content-type">← Back to content types</a></p>
 
 <?php if (!empty($errors)): ?>
     <div class="alert alert-danger">
@@ -129,12 +130,13 @@ $jsFields = array_map(function($f){
 
 <div id="collections-editor-root">
     <div id="collections-fields-list"></div>
-    <form id="save-all-form" method="post" style="margin-top:16px;">
+    <form id="save-all-form" method="post" style="margin-top:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="action" value="save_all">
         <input type="hidden" name="fields_json" id="fields_json_input">
         <button type="button" id="save-all-btn" class="btn-primary">Save All</button>
         <button type="button" id="add-field-btn" class="btn-primary">Add Field</button>
+        <a href="?page=content-type" class="btn-secondary">Cancel</a>
     </form>
 </div>
 

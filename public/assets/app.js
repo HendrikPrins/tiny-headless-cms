@@ -37,7 +37,7 @@ window.initCollectionsEditor = function initCollectionsEditor(cfg) {
     const form = qs(cfg.formId);
     const input = qs(cfg.inputId);
 
-    let state = Array.isArray(cfg.initial) ? cfg.initial.map(f => Object.assign({deleted:false}, f)) : [];
+    let state = Array.isArray(cfg.initial) ? cfg.initial.map(f => Object.assign({deleted:false, _error:null}, f)) : [];
 
     const TYPES = [
         {value: 'string', label: 'String'},
@@ -47,71 +47,101 @@ window.initCollectionsEditor = function initCollectionsEditor(cfg) {
         {value: 'boolean', label: 'Boolean'},
     ];
 
+    // Global error container
+    const globalError = el('div', {class: 'alert alert-danger', style: 'display:none; margin-bottom:10px;'});
+    list.parentNode.insertBefore(globalError, list);
+
+    function showGlobalError(msg) {
+        globalError.textContent = msg || '';
+        globalError.style.display = msg ? 'block' : 'none';
+    }
+
+    function validateRow(f) {
+        // Only validate existing rows (id>0) that are not deleted for required name
+        if (f.id && !f.deleted && (!f.name || String(f.name).trim() === '')) {
+            return 'Name is required.';
+        }
+        return null;
+    }
+
     function render() {
         list.innerHTML = '';
         state.forEach((f, idx) => {
-            const row = el('div', {class: 'ch-row', style: 'display:flex; gap:12px; align-items:center; margin-bottom:8px; border:1px solid #e0e0e0; padding:8px; border-radius:4px;'});
+            const row = el('div', {class: 'ch-row', style: 'display:flex; flex-direction:column; gap:6px; margin-bottom:10px; border:1px solid #e0e0e0; padding:8px; border-radius:4px;'});
             if (f.deleted) row.style.opacity = '0.5';
 
-            // name input
-            const name = el('input', {type: 'text', value: f.name || '', placeholder: 'Field name', style: 'min-width:160px'});
-            name.addEventListener('input', function(){ state[idx].name = this.value; });
+            const fieldsLine = el('div', {style: 'display:flex; gap:12px; align-items:center; flex-wrap:wrap;'});
 
-            // type select
+            const name = el('input', {type: 'text', value: f.name || '', placeholder: 'Field name', style: 'min-width:160px'});
+            name.addEventListener('input', function(){ state[idx].name = this.value; state[idx]._error = validateRow(state[idx]); updateRowError(); });
+
             const sel = createSelect(TYPES, f.field_type || 'string');
             sel.addEventListener('change', function(){ state[idx].field_type = this.value; });
 
-            // required checkbox
             const reqLabel = el('label', {style: 'display:inline-flex; align-items:center; gap:6px;'}, 'Required');
             const req = el('input', {type: 'checkbox'});
             req.checked = !!f.is_required;
             req.addEventListener('change', function(){ state[idx].is_required = this.checked; });
             reqLabel.appendChild(req);
 
-            // translatable checkbox
             const transLabel = el('label', {style: 'display:inline-flex; align-items:center; gap:6px;'}, 'Translatable');
             const trans = el('input', {type: 'checkbox'});
             trans.checked = !!f.is_translatable;
             trans.addEventListener('change', function(){ state[idx].is_translatable = this.checked; });
             transLabel.appendChild(trans);
 
-            // order
             const order = el('input', {type: 'number', value: f.order || 0, style: 'width:80px'});
             order.addEventListener('input', function(){ state[idx].order = parseInt(this.value || '0', 10); });
-
-            const left = el('div', {style: 'flex:1; display:flex; gap:8px; align-items:center;'});
-            left.appendChild(name);
-            left.appendChild(sel);
-            left.appendChild(reqLabel);
-            left.appendChild(transLabel);
-            left.appendChild(order);
 
             const delBtn = el('button', {type:'button', class: 'btn-danger'}, f.deleted ? 'Undelete' : 'Delete');
             delBtn.addEventListener('click', function(){
                 state[idx].deleted = !state[idx].deleted;
+                state[idx]._error = validateRow(state[idx]);
                 render();
             });
 
-            const right = el('div', {style: 'display:flex; gap:8px; align-items:center;'});
-            right.appendChild(delBtn);
+            fieldsLine.appendChild(name);
+            fieldsLine.appendChild(sel);
+            fieldsLine.appendChild(reqLabel);
+            fieldsLine.appendChild(transLabel);
+            fieldsLine.appendChild(order);
+            fieldsLine.appendChild(delBtn);
 
-            row.appendChild(left);
-            row.appendChild(right);
+            const errorLine = el('div', {class: 'field-error', style: 'color:#ff6b6b; min-height:18px;'});
+
+            function updateRowError(){
+                errorLine.textContent = state[idx]._error || '';
+            }
+            state[idx]._error = validateRow(state[idx]);
+            updateRowError();
+
+            row.appendChild(fieldsLine);
+            row.appendChild(errorLine);
             list.appendChild(row);
         });
     }
 
     function addNew() {
-        state.push({id:0, name:'', field_type:'string', is_required:false, is_translatable:false, order:0, deleted:false});
+        state.push({id:0, name:'', field_type:'string', is_required:false, is_translatable:false, order:0, deleted:false, _error:null});
         render();
     }
 
+    function setSaveDisabled(disabled) {
+        if (saveBtn) {
+            saveBtn.disabled = !!disabled;
+            saveBtn.textContent = disabled ? 'Saving…' : 'Save All';
+        }
+    }
+
     function submitAll() {
-        // validation: ensure existing fields (id>0 and not deleted) have a name
+        showGlobalError('');
+
+        // Validate all rows and block on first error
         for (let i=0;i<state.length;i++) {
-            const f = state[i];
-            if (f.id && !f.deleted && (!f.name || String(f.name).trim() === '')) {
-                alert('Existing fields must have a name. Please fill or delete them.');
+            state[i]._error = validateRow(state[i]);
+            if (state[i]._error) {
+                render();
+                showGlobalError('Please fix validation errors before saving.');
                 return;
             }
         }
@@ -126,8 +156,14 @@ window.initCollectionsEditor = function initCollectionsEditor(cfg) {
             deleted: f.deleted ? 1 : 0
         }));
 
-        input.value = JSON.stringify(payload);
-        form.submit();
+        setSaveDisabled(true);
+        try {
+            input.value = JSON.stringify(payload);
+            form.submit();
+        } finally {
+            // In PRG flow, page will navigate; this is a fallback if submit is prevented by the browser
+            setTimeout(() => setSaveDisabled(false), 3000);
+        }
     }
 
     // attach handlers
@@ -137,4 +173,3 @@ window.initCollectionsEditor = function initCollectionsEditor(cfg) {
     // initial render
     render();
 };
-

@@ -8,9 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
         $errors[] = 'Invalid request.';
-    }
-
-    if ($username === '' || $password === '') {
+    } elseif ($username === '' || $password === '') {
         $errors[] = 'All fields are required.';
     } else {
         $db = Database::getInstance();

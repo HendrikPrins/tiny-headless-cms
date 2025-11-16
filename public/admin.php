@@ -20,10 +20,9 @@ $isLoggedIn = isset($_SESSION['user_id']);
 $page = $_GET['page'] ?? 'dashboard';
 $routes = [
     "dashboard",
-    "collections",
-    "collections-create",
-    "collections-edit",
-    "singletons",
+    "content-type",
+    "content-type-create",
+    "content-type-edit",
     "assets",
     "users",
 ];
