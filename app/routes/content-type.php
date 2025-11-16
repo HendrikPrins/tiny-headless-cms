@@ -10,7 +10,6 @@ foreach ($types as $t) {
 <h1>Content Types</h1>
 
 <h2>Collections</h2>
-<p><a href="?page=content-type-create&singleton=false">Create new collection</a></p>
 <?php if (empty($collections)): ?>
     <p>No collections found.</p>
 <?php else: ?>
@@ -21,7 +20,7 @@ foreach ($types as $t) {
                 <th>Name</th>
                 <th>Fields</th>
                 <th>Entries</th>
-                <th></th>
+                <th><a href="?page=content-type-create&singleton=false">Create collection</a></th>
             </tr>
             </thead>
             <tbody>
@@ -32,6 +31,8 @@ foreach ($types as $t) {
                     <td><?= (int)$c['entries_count'] ?></td>
                     <td>
                         <a href="?page=content-type-edit&id=<?= (int)$c['id'] ?>">Edit</a>
+                        |
+                        <a href="?page=content-entries&ct=<?= (int)$c['id'] ?>">Content</a>
                     </td>
                 </tr>
             <?php endforeach; ?>
@@ -41,7 +42,6 @@ foreach ($types as $t) {
 <?php endif; ?>
 
 <h2>Singletons</h2>
-<p><a href="?page=content-type-create&singleton=true">Create new singleton</a></p>
 <?php if (empty($singletons)): ?>
     <p>No singletons found.</p>
 <?php else: ?>
@@ -51,8 +51,7 @@ foreach ($types as $t) {
             <tr>
                 <th>Name</th>
                 <th>Fields</th>
-                <th>Entries</th>
-                <th></th>
+                <th><a href="?page=content-type-create&singleton=true">Create singleton</a></th>
             </tr>
             </thead>
             <tbody>
@@ -60,9 +59,10 @@ foreach ($types as $t) {
                 <tr>
                     <td><?= htmlspecialchars($s['name'], ENT_QUOTES, 'UTF-8') ?></td>
                     <td><?= (int)$s['fields_count'] ?></td>
-                    <td><?= (int)$s['entries_count'] ?></td>
                     <td>
                         <a href="?page=content-type-edit&id=<?= (int)$s['id'] ?>">Edit</a>
+                        |
+                        <a href="?page=content-entries&ct=<?= (int)$s['id'] ?>">Content</a>
                     </td>
                 </tr>
             <?php endforeach; ?>

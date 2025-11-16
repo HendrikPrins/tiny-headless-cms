@@ -130,7 +130,7 @@ input:focus {
     color: #888;
 }
 
-button {
+button, .btn {
     display: inline-block;
     font: inherit;
     font-weight: 500;
@@ -139,6 +139,10 @@ button {
     border: none;
     cursor: pointer;
     transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.btn:hover {
+    text-decoration: none;
 }
 
 .btn-default {
@@ -155,6 +159,14 @@ button {
 }
 .btn-primary:hover {
     background-color: #004999;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: #fff;
+}
+.btn-success:hover {
+    background-color: #1e7e34;
 }
 
 .btn-danger {

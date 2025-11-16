@@ -20,9 +20,18 @@ $isLoggedIn = isset($_SESSION['user_id']);
 $page = $_GET['page'] ?? 'dashboard';
 $routes = [
     "dashboard",
+    // legacy entry point for list - keep pointing to collections.php which now renders content types
+    "collections",
+    // new unified content type routes
     "content-type",
     "content-type-create",
     "content-type-edit",
+    // entries routes
+    "content-entries",
+    "content-entry-edit",
+    // legacy pages kept for compatibility if linked elsewhere
+    "collections-create",
+    "collections-edit",
     "assets",
     "users",
 ];

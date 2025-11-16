@@ -218,4 +218,72 @@ class Database {
         return $stmt->execute();
     }
 
+    // List entries for a content type
+    public function getEntriesForContentType(int $contentTypeId)
+    {
+        $stmt = $this->connection->prepare("SELECT id FROM entries WHERE content_type_id = :ctid ORDER BY id DESC");
+        $stmt->bindParam(':ctid', $contentTypeId, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function getEntryCountForContentType(int $contentTypeId): int
+    {
+        $stmt = $this->connection->prepare("SELECT COUNT(*) FROM entries WHERE content_type_id = :ctid");
+        $stmt->bindParam(':ctid', $contentTypeId, PDO::PARAM_INT);
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function getEntryById(int $entryId)
+    {
+        $stmt = $this->connection->prepare("SELECT id, content_type_id FROM entries WHERE id = :id");
+        $stmt->bindParam(':id', $entryId, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetch();
+    }
+
+    // Map of field_id => value for locale NULL
+    public function getFieldValuesForEntry(int $entryId): array
+    {
+        $stmt = $this->connection->prepare("SELECT field_id, value FROM field_values WHERE entry_id = :eid AND locale IS NULL");
+        $stmt->bindParam(':eid', $entryId, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll();
+        $out = [];
+        foreach ($rows as $r) { $out[(int)$r['field_id']] = $r['value']; }
+        return $out;
+    }
+
+    public function createEntry(int $contentTypeId): int
+    {
+        $stmt = $this->connection->prepare("INSERT INTO entries (content_type_id) VALUES (:ctid)");
+        $stmt->bindParam(':ctid', $contentTypeId, PDO::PARAM_INT);
+        $stmt->execute();
+        return (int)$this->connection->lastInsertId();
+    }
+
+    // Save or update values for locale NULL
+    public function saveEntryValues(int $entryId, array $valuesByFieldId): void
+    {
+        // Use upsert
+        $sql = "INSERT INTO field_values (entry_id, field_id, locale, value) VALUES (:eid, :fid, NULL, :val)
+                ON DUPLICATE KEY UPDATE value = VALUES(value)";
+        $stmt = $this->connection->prepare($sql);
+        foreach ($valuesByFieldId as $fieldId => $val) {
+            $fid = (int)$fieldId;
+            $stmt->bindParam(':eid', $entryId, PDO::PARAM_INT);
+            $stmt->bindParam(':fid', $fid, PDO::PARAM_INT);
+            $stmt->bindParam(':val', $val);
+            $stmt->execute();
+        }
+    }
+
+    public function deleteEntry(int $entryId): bool
+    {
+        $stmt = $this->connection->prepare("DELETE FROM entries WHERE id = :id");
+        $stmt->bindParam(':id', $entryId, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
+
 }
