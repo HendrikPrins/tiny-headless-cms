@@ -27,7 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Invalid request.';
     } else {
         $action = $_POST['action'] ?? '';
-        if ($action === 'rename' && isset($_POST['new_name'])) {
+        if ($action === 'delete_content_type') {
+            try {
+                $db->deleteContentType($id);
+                while (ob_get_level() > 0) { ob_end_clean(); }
+                header('Location: admin.php?page=content-type', true, 303);
+                exit;
+            } catch (PDOException $e) {
+                $errors[] = 'Failed to delete content type.';
+            }
+        } elseif ($action === 'rename' && isset($_POST['new_name'])) {
             $newName = trim($_POST['new_name']);
             try {
                 Database::getInstance()->updateContentTypeName($id, $newName);
@@ -123,7 +132,6 @@ $jsFields = array_map(function($f){
 
 <h1>Edit Content Type: <?= htmlspecialchars($collection['name'], ENT_QUOTES, 'UTF-8') ?></h1>
 <p><a href="?page=content-type">← Back to content types</a></p>
-
 <form method="post" style="margin-bottom:12px; display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="rename">
@@ -150,6 +158,7 @@ $jsFields = array_map(function($f){
     </div>
 <?php endif; ?>
 
+<h2>Fields</h2>
 <div id="collections-editor-root">
     <div id="collections-fields-list"></div>
     <form id="save-all-form" method="post" style="margin-top:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -161,6 +170,16 @@ $jsFields = array_map(function($f){
         <a href="?page=content-type" class="btn-secondary">Cancel</a>
     </form>
 </div>
+
+<hr style="margin: 32px 0; border:none; border-top:1px solid #ccc;">
+
+<h2>Danger Zone</h2>
+<form method="post" onsubmit="return confirm('⚠️ WARNING: This will permanently delete the content type &quot;<?= htmlspecialchars($collection['name'], ENT_QUOTES, 'UTF-8') ?>&quot; and ALL associated entries, fields, and field values.\n\nThis action cannot be undone.\n\nAre you sure you want to continue?');">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="action" value="delete_content_type">
+    <p style="margin-bottom:12px;">Deleting this content type will permanently remove all associated content entries, fields, and data.</p>
+    <button type="submit" class="btn-danger">Delete Content Type</button>
+</form>
 
 <script>
     window.__collectionsInitial = <?= json_encode($jsFields, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT) ?>;

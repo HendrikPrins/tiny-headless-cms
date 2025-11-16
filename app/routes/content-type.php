@@ -10,6 +10,7 @@ foreach ($types as $t) {
 <h1>Content Types</h1>
 
 <h2>Collections</h2>
+<a href="?page=content-type-create&singleton=false">Create collection</a>
 <?php if (empty($collections)): ?>
     <p>No collections found.</p>
 <?php else: ?>
@@ -18,16 +19,14 @@ foreach ($types as $t) {
             <thead>
             <tr>
                 <th>Name</th>
-                <th>Fields</th>
                 <th>Entries</th>
-                <th><a href="?page=content-type-create&singleton=false">Create collection</a></th>
+                <th></th>
             </tr>
             </thead>
             <tbody>
             <?php foreach ($collections as $c): ?>
                 <tr>
                     <td><?= htmlspecialchars($c['name'], ENT_QUOTES, 'UTF-8') ?></td>
-                    <td><?= (int)$c['fields_count'] ?></td>
                     <td><?= (int)$c['entries_count'] ?></td>
                     <td>
                         <a href="?page=content-type-edit&id=<?= (int)$c['id'] ?>">Edit</a>
@@ -42,6 +41,7 @@ foreach ($types as $t) {
 <?php endif; ?>
 
 <h2>Singletons</h2>
+<a href="?page=content-type-create&singleton=true">Create singleton</a>
 <?php if (empty($singletons)): ?>
     <p>No singletons found.</p>
 <?php else: ?>
@@ -50,15 +50,13 @@ foreach ($types as $t) {
             <thead>
             <tr>
                 <th>Name</th>
-                <th>Fields</th>
-                <th><a href="?page=content-type-create&singleton=true">Create singleton</a></th>
+                <th></th>
             </tr>
             </thead>
             <tbody>
             <?php foreach ($singletons as $s): ?>
                 <tr>
                     <td><?= htmlspecialchars($s['name'], ENT_QUOTES, 'UTF-8') ?></td>
-                    <td><?= (int)$s['fields_count'] ?></td>
                     <td>
                         <a href="?page=content-type-edit&id=<?= (int)$s['id'] ?>">Edit</a>
                         |

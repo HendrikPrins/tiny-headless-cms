@@ -218,6 +218,14 @@ class Database {
         return $stmt->execute();
     }
 
+    // Delete a content type (CASCADE will delete fields, entries, and field_values)
+    public function deleteContentType(int $id): bool
+    {
+        $stmt = $this->connection->prepare("DELETE FROM content_types WHERE id = :id");
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
+
     // List entries for a content type
     public function getEntriesForContentType(int $contentTypeId)
     {
