@@ -37,8 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $values[$fid] = $raw; break;
                 }
             }
-            $db->saveEntryValues($entryId, $values);
-            header('Location: admin.php?page=content-entries&ct=' . $ctId, true, 303);
+            $locale = '';
+            $db->saveEntryValues($entryId, $values, $locale);
+            if ($ct['is_singleton']) {
+                header('Location: admin.php?page=content-type', true, 303);
+            } else {
+                header('Location: admin.php?page=content-entries&ct=' . $ctId, true, 303);
+            }
             exit;
         }
     }
@@ -46,10 +51,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $entry = null;
 $values = [];
+$locale = '';
 if ($entryId > 0) {
     $entry = $db->getEntryById($entryId);
     if (!$entry || (int)$entry['content_type_id'] !== $ctId) { echo '<h1>Entry not found</h1>'; return; }
-    $values = $db->getFieldValuesForEntry($entryId);
+    $values = $db->getFieldValuesForEntry($entryId, $locale);
 }
 
 ?>

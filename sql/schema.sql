@@ -34,14 +34,13 @@ CREATE TABLE fields
 
 CREATE TABLE field_values
 (
-    id       INT AUTO_INCREMENT PRIMARY KEY,
     entry_id INT NOT NULL,
     field_id INT NOT NULL,
     locale   VARCHAR(10) DEFAULT NULL,
     value    LONGTEXT,
     FOREIGN KEY (entry_id) REFERENCES entries (id) ON DELETE CASCADE,
     FOREIGN KEY (field_id) REFERENCES fields (id) ON DELETE CASCADE,
-    UNIQUE KEY unique_field_locale (entry_id, field_id, locale)
+    PRIMARY KEY unique_field_locale (entry_id, field_id, locale)
 );
 
 CREATE INDEX idx_entries_content_type ON entries (content_type_id);

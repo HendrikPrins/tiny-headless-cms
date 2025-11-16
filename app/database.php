@@ -255,10 +255,11 @@ class Database {
     }
 
     // Map of field_id => value for locale NULL
-    public function getFieldValuesForEntry(int $entryId): array
+    public function getFieldValuesForEntry(int $entryId, string $locale): array
     {
-        $stmt = $this->connection->prepare("SELECT field_id, value FROM field_values WHERE entry_id = :eid AND locale IS NULL");
+        $stmt = $this->connection->prepare("SELECT field_id, value FROM field_values WHERE entry_id = :eid AND locale = :loc");
         $stmt->bindParam(':eid', $entryId, PDO::PARAM_INT);
+        $stmt->bindParam(':loc', $locale);
         $stmt->execute();
         $rows = $stmt->fetchAll();
         $out = [];
@@ -275,16 +276,17 @@ class Database {
     }
 
     // Save or update values for locale NULL
-    public function saveEntryValues(int $entryId, array $valuesByFieldId): void
+    public function saveEntryValues(int $entryId, array $valuesByFieldId, string $locale): void
     {
         // Use upsert
-        $sql = "INSERT INTO field_values (entry_id, field_id, locale, value) VALUES (:eid, :fid, NULL, :val)
+        $sql = "INSERT INTO field_values (entry_id, field_id, locale, value) VALUES (:eid, :fid, :loc, :val)
                 ON DUPLICATE KEY UPDATE value = VALUES(value)";
         $stmt = $this->connection->prepare($sql);
         foreach ($valuesByFieldId as $fieldId => $val) {
             $fid = (int)$fieldId;
             $stmt->bindParam(':eid', $entryId, PDO::PARAM_INT);
             $stmt->bindParam(':fid', $fid, PDO::PARAM_INT);
+            $stmt->bindParam(':loc', $locale);
             $stmt->bindParam(':val', $val);
             $stmt->execute();
         }
