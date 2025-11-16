@@ -17,7 +17,16 @@ require __DIR__ . '/../app/config.php';
 
 $isLoggedIn = isset($_SESSION['user_id']);
 
-$page = $_GET['page'] ?? ($isLoggedIn ? 'dashboard' : 'login');
+$page = $_GET['page'] ?? 'dashboard';
+$routes = [
+    "dashboard",
+    "collections",
+    "collections-create",
+    "collections-edit",
+    "singletons",
+    "assets",
+    "users",
+];
 
 ob_start();
 
@@ -31,16 +40,12 @@ if (!Database::getInstance()->hasSchema()) {
     exit;
 } elseif (!$isLoggedIn) {
     include __DIR__ . '/../app/routes/login.php';
+} elseif (in_array($page, $routes)) {
+    include __DIR__ . "/../app/routes/{$page}.php";
 } else {
-    switch ($page) {
-        case 'dashboard':
-            include __DIR__ . '/../app/routes/dashboard.php';
-            break;
-        default:
-            http_response_code(404);
-            $title = "404 Not Found";
-            echo "<h1>Page not found</h1>";
-    }
+    http_response_code(404);
+    $title = "404 Not Found";
+    echo "<h1>Page not found</h1>";
 }
 $body = ob_get_clean();
 if (isset($useFullTemplate) && $useFullTemplate){

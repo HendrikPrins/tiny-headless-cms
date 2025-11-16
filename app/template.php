@@ -13,10 +13,10 @@
     <div class="content">
         <span class="project-title">Tiny Headless CMS</span>
         <nav>
-            <a href="">Collections</a>
-            <a href="">Singletons</a>
-            <a href="">Assets</a>
-            <a href="">Users</a>
+            <a href="admin.php?page=collections">Collections</a>
+            <a href="admin.php?page=singletons">Singletons</a>
+            <a href="admin.php?page=assets">Assets</a>
+            <a href="admin.php?page=users">Users</a>
             <a href="admin.php?page=logout">Logout</a>
         </nav>
     </div>

@@ -110,7 +110,7 @@ thead th {
     text-align: center;
 }
 
-input {
+input, select {
     background-color: #1e1e1e;
     color: #ffffff;
     border: 1px solid #333;
