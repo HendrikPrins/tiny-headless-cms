@@ -48,12 +48,12 @@ $entryCount = count($entries);
                     <tr>
                         <td>#<?= (int)$e['id'] ?></td>
                         <td>
-                            <a href="?page=content-entry-edit&ct=<?= (int)$ctId ?>&id=<?= (int)$e['id'] ?>">Edit</a>
-                            <form method="post" style="display:inline-block; margin-left:8px;" onsubmit="return confirm('Delete this entry?');">
+                            <a class="btn btn-icon btn-primary" href="?page=content-entry-edit&ct=<?= $ctId ?>&id=<?= (int)$e['id'] ?>"><?=ICON_PENCIL?></a>
+                            <form class="form-table-delete" method="post" onsubmit="return confirm('Delete this entry?');">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="entry_id" value="<?= (int)$e['id'] ?>">
-                                <button type="submit" class="btn-danger">Delete</button>
+                                <button type="submit" class="btn-icon btn-danger"><?=ICON_TRASH?></button>
                             </form>
                         </td>
                     </tr>

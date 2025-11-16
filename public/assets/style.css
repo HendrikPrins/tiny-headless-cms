@@ -131,6 +131,10 @@ input:focus {
 }
 
 button, .btn {
+    --btn-bg: #2a2a2a;
+    --btn-bg-hover: #3a3a3a;
+    --btn-color: #fff;
+
     display: inline-block;
     font: inherit;
     font-weight: 500;
@@ -139,43 +143,44 @@ button, .btn {
     border: none;
     cursor: pointer;
     transition: background-color 0.2s ease, opacity 0.2s ease;
+    background-color: var(--btn-bg);
+    color: var(--btn-color);
 }
 
-.btn:hover {
+button:hover, .btn:hover {
+    background-color: var(--btn-bg-hover);
     text-decoration: none;
 }
 
-.btn-default {
-    background-color: #2a2a2a;
-    color: #e0e0e0;
-}
-.btn-default:hover {
-    background-color: #3a3a3a;
-}
-
 .btn-primary {
-    background-color: #0066cc;
-    color: #fff;
-}
-.btn-primary:hover {
-    background-color: #004999;
+    --btn-bg: #0066cc;
+    --btn-bg-hover: #004999;
+    --btn-color: #fff;
 }
 
 .btn-success {
-    background-color: #28a745;
-    color: #fff;
-}
-.btn-success:hover {
-    background-color: #1e7e34;
+    --btn-bg: #28a745;
+    --btn-bg-hover: #1e7e34;
+    --btn-color: #fff;
 }
 
 .btn-danger {
-    background-color: #cc3333;
-    color: #fff;
+    --btn-bg: #cc3333;
+    --btn-bg-hover: #992222;
+    --btn-color: #fff;
 }
-.btn-danger:hover {
-    background-color: #992222;
+
+.btn-icon {
+    background-color: transparent !important;
+    color: var(--btn-bg);
+    padding: 0.25rem;
 }
+
+.btn-icon:hover {
+    background-color: transparent !important;
+    color: var(--btn-bg-hover);
+}
+
 
 .alert {
     padding: 1rem;
@@ -190,4 +195,8 @@ button, .btn {
 .alert-danger {
     background-color: #4d2a2a;
     color: #f8d7da;
+}
+
+.form-table-delete {
+    display: inline;
 }
