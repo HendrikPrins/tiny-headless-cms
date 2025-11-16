@@ -60,7 +60,11 @@ foreach ($types as $t) {
                     <td>
                         <a href="?page=content-type-edit&id=<?= (int)$s['id'] ?>">Edit</a>
                         |
-                        <a href="?page=content-entries&ct=<?= (int)$s['id'] ?>">Content</a>
+                        <?php if ($s['singleton_entry_id']): ?>
+                            <a href="?page=content-entry-edit&ct=<?= (int)$s['id'] ?>&id=<?= (int)$s['singleton_entry_id'] ?>">Edit Content</a>
+                        <?php else: ?>
+                            <a href="?page=content-entry-edit&ct=<?= (int)$s['id'] ?>">Create Content</a>
+                        <?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>

@@ -102,7 +102,10 @@ class Database {
                 ct.name,
                 ct.is_singleton,
                 (SELECT COUNT(*) FROM fields f WHERE f.content_type_id = ct.id)   AS fields_count,
-                (SELECT COUNT(*) FROM entries e WHERE e.content_type_id = ct.id)  AS entries_count
+                (SELECT COUNT(*) FROM entries e WHERE e.content_type_id = ct.id)  AS entries_count,
+                CASE WHEN ct.is_singleton = 1 THEN (
+                    SELECT e.id FROM entries e WHERE e.content_type_id = ct.id ORDER BY e.id ASC LIMIT 1
+                ) ELSE NULL END AS singleton_entry_id
             FROM content_types ct
             ORDER BY ct.name
         ";

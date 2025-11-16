@@ -54,7 +54,9 @@ if ($entryId > 0) {
 
 ?>
 <h1><?= $entryId ? 'Edit' : 'Create' ?> Entry: <?= htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8') ?></h1>
+<?php if (!$ct['is_singleton']): ?>
 <p><a href="?page=content-entries&ct=<?= (int)$ctId ?>">← Back to entries</a></p>
+<?php endif; ?>
 
 <form method="post" style="display:flex; flex-direction:column; gap:12px; max-width:720px;">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
@@ -76,7 +78,11 @@ if ($entryId > 0) {
     <?php endforeach; ?>
     <div style="display:flex; gap:8px; align-items:center;">
         <button type="submit" class="btn-primary">Save</button>
+        <?php if (!$ct['is_singleton']): ?>
         <a href="?page=content-entries&ct=<?= (int)$ctId ?>" class="btn-secondary">Cancel</a>
+        <?php else: ?>
+        <a href="?page=content-type" class="btn-secondary">Cancel</a>
+        <?php endif; ?>
     </div>
 </form>
 
