@@ -1,0 +1,11 @@
+# Deny access to hidden files (.env, .git, etc.)
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Block direct access to app/ and config.php
+RedirectMatch 403 ^/app/
+RedirectMatch 403 ^/config\.php$
+
+# Disable directory listing
+Options -Indexes
