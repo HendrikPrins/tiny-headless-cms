@@ -127,6 +127,22 @@ class Database {
         return (int)$this->connection->lastInsertId();
     }
 
+    // Add: update content type name
+    public function updateContentTypeName(int $id, string $name): bool
+    {
+        $name = trim($name);
+        if ($name === '') {
+            throw new InvalidArgumentException('Name is required');
+        }
+        if (strlen($name) > 255) {
+            throw new InvalidArgumentException('Name must be 255 characters or fewer');
+        }
+        $stmt = $this->connection->prepare("UPDATE content_types SET name = :name WHERE id = :id");
+        $stmt->bindParam(':name', $name);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
+
     // Fetch a single collection/content type by id
     public function getCollectionById(int $id)
     {
@@ -203,4 +219,3 @@ class Database {
     }
 
 }
-

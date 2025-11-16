@@ -27,7 +27,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Invalid request.';
     } else {
         $action = $_POST['action'] ?? '';
-        if ($action === 'save_all') {
+        if ($action === 'rename' && isset($_POST['new_name'])) {
+            $newName = trim($_POST['new_name']);
+            try {
+                Database::getInstance()->updateContentTypeName($id, $newName);
+                $_SESSION['flash_messages'] = ['Name updated.'];
+                while (ob_get_level() > 0) { ob_end_clean(); }
+                header('Location: admin.php?page=content-type-edit&id=' . $id, true, 303);
+                exit;
+            } catch (InvalidArgumentException $e) {
+                $errors[] = $e->getMessage();
+            } catch (PDOException $e) {
+                $errors[] = ($e->getCode() === '23000') ? 'A content type with that name already exists.' : 'Failed to update name.';
+            }
+        } elseif ($action === 'save_all') {
             $fieldsJson = $_POST['fields_json'] ?? '';
             $decoded = json_decode($fieldsJson, true);
             if (!is_array($decoded)) {
@@ -109,8 +122,17 @@ $jsFields = array_map(function($f){
 ?>
 
 <h1>Edit Content Type: <?= htmlspecialchars($collection['name'], ENT_QUOTES, 'UTF-8') ?></h1>
-<p><strong>Type:</strong> <?= $collection['is_singleton'] ? 'Singleton' : 'Collection' ?> (read-only)</p>
 <p><a href="?page=content-type">← Back to content types</a></p>
+
+<form method="post" style="margin-bottom:12px; display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="action" value="rename">
+    <label style="display:flex; flex-direction:column; gap:4px;">
+        <span>Content Type Name</span>
+        <input type="text" name="new_name" value="<?= htmlspecialchars($collection['name'], ENT_QUOTES, 'UTF-8') ?>" maxlength="255" required style="min-width:260px;">
+    </label>
+    <button type="submit" class="btn-primary">Rename</button>
+</form>
 
 <?php if (!empty($errors)): ?>
     <div class="alert alert-danger">
