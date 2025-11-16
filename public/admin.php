@@ -1,5 +1,18 @@
 <?php
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'httponly' => true,
+    'samesite' => 'Strict',
+]);
+
 session_start();
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 require __DIR__ . '/../app/config.php';
 
 $isLoggedIn = isset($_SESSION['user_id']);
@@ -7,18 +20,21 @@ $isLoggedIn = isset($_SESSION['user_id']);
 $page = $_GET['page'] ?? ($isLoggedIn ? 'dashboard' : 'login');
 
 ob_start();
-$hasAdminUser = Database::getInstance()->hasAdminUser();
-if (!$hasAdminUser) {
+
+if (!Database::getInstance()->hasSchema()) {
+    include __DIR__ . '/../app/routes/noschema.php';
+} elseif (!Database::getInstance()->hasAdminUser()) {
     include __DIR__ . '/../app/routes/register.php';
+} elseif ($page == 'logout') {
+    session_destroy();
+    header('Location: admin.php', true, 303);
+    exit;
+} elseif (!$isLoggedIn) {
+    include __DIR__ . '/../app/routes/login.php';
 } else {
     switch ($page) {
-        case 'login' || !$isLoggedIn:
-            include __DIR__ . '/../app/routes/login.php';
-            break;
-        case 'editor':include __DIR__ . '/../app/editor.php';
-            break;
         case 'dashboard':
-            include __DIR__ . '/../app/dashboard.php';
+            include __DIR__ . '/../app/routes/dashboard.php';
             break;
         default:
             http_response_code(404);

@@ -26,12 +26,39 @@ class Database {
         return self::$instance;
     }
 
+    public function hasSchema() {
+        try {
+            $stmt = $this->connection->query("SHOW TABLES LIKE 'users'");
+            return $stmt->rowCount() > 0;
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+
     public function hasAdminUser() {
         try {
-            $stmt = $this->connection->query("SELECT COUNT(*) FROM users WHERE is_admin = 1");
+            $stmt = $this->connection->query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
             return $stmt->fetchColumn() > 0;
         } catch (PDOException $e) {
             return false;
         }
     }
+
+    public function createUser($username, $password, $role) {
+        $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+        $stmt = $this->connection->prepare("INSERT INTO users (username, password, role) VALUES (:username, :password, :role)");
+        $stmt->bindParam(':username', $username);
+        $stmt->bindParam(':password', $hashedPassword);
+        $stmt->bindParam(':role', $role);
+        return $stmt->execute();
+    }
+
+    public function getUserByUsername(string $username)
+    {
+        $stmt = $this->connection->prepare("SELECT id, username, password, role FROM users WHERE username = :username");
+        $stmt->bindParam(':username', $username);
+        $stmt->execute();
+        return $stmt->fetch();
+    }
+
 }

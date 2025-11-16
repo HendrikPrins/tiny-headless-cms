@@ -164,3 +164,18 @@ button {
 .btn-danger:hover {
     background-color: #992222;
 }
+
+.alert {
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.alert-success {
+    background-color: #2a4d2a;
+    color: #d4edda;
+}
+.alert-danger {
+    background-color: #4d2a2a;
+    color: #f8d7da;
+}

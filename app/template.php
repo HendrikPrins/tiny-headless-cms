@@ -6,6 +6,7 @@
     <meta name="color-scheme" content="dark">
     <title><?php echo htmlspecialchars($title ?? 'Tiny Headless CMS'); ?></title>
     <link rel="stylesheet" href="/assets/style.css">
+    <script defer src="/assets/app.js"></script>
 </head>
 <body>
 <header>
@@ -15,6 +16,8 @@
             <a href="">Collections</a>
             <a href="">Singletons</a>
             <a href="">Assets</a>
+            <a href="">Users</a>
+            <a href="admin.php?page=logout">Logout</a>
         </nav>
     </div>
 </header>
