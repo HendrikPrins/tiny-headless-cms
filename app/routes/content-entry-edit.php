@@ -7,6 +7,11 @@ $ct = $db->getCollectionById($ctId);
 if (!$ct) { echo '<h1>Content type not found</h1>'; return; }
 $fields = $db->getFieldsForCollection($ctId);
 
+// Get available locales
+$locales = CMS_LOCALES;
+// Determine current locale from query param or default to first locale
+$currentLocale = isset($_GET['locale']) && in_array($_GET['locale'], $locales, true) ? $_GET['locale'] : $locales[0];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
         echo '<div class="alert alert-danger">Invalid request.</div>';
@@ -18,27 +23,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($entryId === 0) {
                 $entryId = $db->createEntry($ctId);
             }
-            // Collect values by field id
-            $values = [];
-            foreach ($fields as $f) {
-                $fid = (int)$f['id'];
-                $key = 'field_' . $fid;
-                $raw = $_POST[$key] ?? '';
-                switch ($f['field_type']) {
-                    case 'integer':
-                        $values[$fid] = ($raw === '') ? null : (string)(int)$raw; break;
-                    case 'decimal':
-                        $values[$fid] = ($raw === '') ? null : (string)(float)$raw; break;
-                    case 'boolean':
-                        $values[$fid] = isset($_POST[$key]) ? '1' : '0'; break;
-                    case 'text':
-                    case 'string':
-                    default:
-                        $values[$fid] = $raw; break;
+
+            // Save translatable fields for all locales
+            foreach ($locales as $locale) {
+                $translatableValues = [];
+                foreach ($fields as $f) {
+                    $fid = (int)$f['id'];
+                    $isTranslatable = (bool)$f['is_translatable'];
+
+                    if (!$isTranslatable) {
+                        continue; // Skip non-translatable fields in this loop
+                    }
+
+                    $key = 'field_' . $fid . '_' . $locale;
+
+                    // Skip if not posted (not from current locale tab)
+                    if (!isset($_POST[$key])) {
+                        continue;
+                    }
+
+                    $raw = $_POST[$key] ?? '';
+                    switch ($f['field_type']) {
+                        case 'integer':
+                            $translatableValues[$fid] = ($raw === '') ? null : (string)(int)$raw; break;
+                        case 'decimal':
+                            $translatableValues[$fid] = ($raw === '') ? null : (string)(float)$raw; break;
+                        case 'boolean':
+                            $translatableValues[$fid] = isset($_POST[$key]) ? '1' : '0'; break;
+                        case 'text':
+                        case 'string':
+                        default:
+                            $translatableValues[$fid] = $raw; break;
+                    }
+                }
+
+                // Save translatable values for this locale
+                if (!empty($translatableValues)) {
+                    $db->saveEntryValues($entryId, $translatableValues, $locale);
                 }
             }
-            $locale = '';
-            $db->saveEntryValues($entryId, $values, $locale);
+
+            // Save non-translatable fields with empty locale
+            $nonTranslatableValues = [];
+            foreach ($fields as $f) {
+                $fid = (int)$f['id'];
+                if (!(bool)$f['is_translatable']) {
+                    $key = 'field_' . $fid;
+                    if (isset($_POST[$key])) {
+                        $raw = $_POST[$key];
+                        switch ($f['field_type']) {
+                            case 'integer':
+                                $nonTranslatableValues[$fid] = ($raw === '') ? null : (string)(int)$raw; break;
+                            case 'decimal':
+                                $nonTranslatableValues[$fid] = ($raw === '') ? null : (string)(float)$raw; break;
+                            case 'boolean':
+                                $nonTranslatableValues[$fid] = isset($_POST[$key]) ? '1' : '0'; break;
+                            case 'text':
+                            case 'string':
+                            default:
+                                $nonTranslatableValues[$fid] = $raw; break;
+                        }
+                    }
+                }
+            }
+            if (!empty($nonTranslatableValues)) {
+                $db->saveEntryValues($entryId, $nonTranslatableValues, '');
+            }
+
             if ($ct['is_singleton']) {
                 header('Location: admin.php?page=content-type', true, 303);
             } else {
@@ -50,12 +101,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $entry = null;
-$values = [];
-$locale = '';
+$valuesByLocale = [];
 if ($entryId > 0) {
     $entry = $db->getEntryById($entryId);
     if (!$entry || (int)$entry['content_type_id'] !== $ctId) { echo '<h1>Entry not found</h1>'; return; }
-    $values = $db->getFieldValuesForEntry($entryId, $locale);
+
+    // Load values for all locales
+    foreach ($locales as $locale) {
+        $valuesByLocale[$locale] = $db->getFieldValuesForEntry($entryId, $locale);
+    }
+    // Load non-translatable values (empty locale)
+    $valuesByLocale[''] = $db->getFieldValuesForEntry($entryId, '');
 }
 
 ?>
@@ -64,24 +120,54 @@ if ($entryId > 0) {
 <p><a href="?page=content-entries&ct=<?= (int)$ctId ?>">← Back to entries</a></p>
 <?php endif; ?>
 
+<!-- Locale switcher tabs -->
+<div style="display:flex; gap:8px; margin-bottom:24px; border-bottom:2px solid #ddd; padding-bottom:8px;">
+    <?php foreach ($locales as $locale): ?>
+        <a href="?page=content-entry-edit&ct=<?= (int)$ctId ?><?= $entryId ? '&id=' . (int)$entryId : '' ?>&locale=<?= urlencode($locale) ?>"
+           style="padding:8px 16px; text-decoration:none; border-radius:4px 4px 0 0; font-weight:<?= $locale === $currentLocale ? 'bold' : 'normal' ?>; background:<?= $locale === $currentLocale ? '#007bff' : '#f0f0f0' ?>; color:<?= $locale === $currentLocale ? 'white' : '#333' ?>;">
+            <?= strtoupper(htmlspecialchars($locale, ENT_QUOTES, 'UTF-8')) ?>
+        </a>
+    <?php endforeach; ?>
+</div>
+
 <form method="post" style="display:flex; flex-direction:column; gap:12px; max-width:720px;">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
-    <?php foreach ($fields as $f): $fid = (int)$f['id']; $name = htmlspecialchars($f['name'], ENT_QUOTES, 'UTF-8'); $ft = $f['field_type']; $val = $values[$fid] ?? ''; ?>
+
+    <?php foreach ($fields as $f):
+        $fid = (int)$f['id'];
+        $name = htmlspecialchars($f['name'], ENT_QUOTES, 'UTF-8');
+        $ft = $f['field_type'];
+        $isTranslatable = (bool)$f['is_translatable'];
+
+        // Determine which value to show and which input name to use
+        if ($isTranslatable) {
+            // Show value for current locale
+            $val = $valuesByLocale[$currentLocale][$fid] ?? '';
+            $inputName = 'field_' . $fid . '_' . $currentLocale;
+            $localeIndicator = ' <span style="font-size:0.85em; color:#666; font-weight:normal;">(locale: ' . strtoupper(htmlspecialchars($currentLocale, ENT_QUOTES, 'UTF-8')) . ')</span>';
+        } else {
+            // Show global value (empty locale)
+            $val = $valuesByLocale[''][$fid] ?? '';
+            $inputName = 'field_' . $fid;
+            $localeIndicator = ' <span style="font-size:0.85em; color:#999; font-weight:normal;">(global)</span>';
+        }
+    ?>
         <label style="display:flex; flex-direction:column; gap:6px;">
-            <span><?= $name ?><?= $f['is_required'] ? ' *' : '' ?></span>
+            <span><?= $name ?><?= $f['is_required'] ? ' *' : '' ?><?= $localeIndicator ?></span>
             <?php if ($ft === 'text'): ?>
-                <textarea name="field_<?= $fid ?>" rows="4"><?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?></textarea>
+                <textarea name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" rows="4"><?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?></textarea>
             <?php elseif ($ft === 'integer'): ?>
-                <input type="number" step="1" name="field_<?= $fid ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="number" step="1" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
             <?php elseif ($ft === 'decimal'): ?>
-                <input type="number" step="any" name="field_<?= $fid ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="number" step="any" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
             <?php elseif ($ft === 'boolean'): ?>
-                <input type="checkbox" name="field_<?= $fid ?>" value="1" <?= ($val === '1') ? 'checked' : '' ?>>
+                <input type="checkbox" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="1" <?= ($val === '1') ? 'checked' : '' ?>>
             <?php else: ?>
-                <input type="text" name="field_<?= $fid ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="text" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
             <?php endif; ?>
         </label>
     <?php endforeach; ?>
+
     <div style="display:flex; gap:8px; align-items:center;">
         <button type="submit" class="btn-primary">Save</button>
         <?php if (!$ct['is_singleton']): ?>
