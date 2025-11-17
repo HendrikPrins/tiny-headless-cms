@@ -1,3 +1,33 @@
+:root {
+    --bg-body: #272727;
+    --bg-content: #1e1e1e;
+    --bg-header: #060606;
+    --bg-card: #2c2c2c;
+    --bg-row-even: #2c2c2c;
+    --bg-thead: #333;
+    --bg-input: #1e1e1e;
+    --bg-input-focus: #171717;
+
+    --color-light: #2a2a2a;
+    --color-light-shade: #3a3a3a;
+    --color-light-contrast: #fff;
+    --color-primary: #0066cc;
+    --color-primary-shade: #004999;
+    --color-primary-contrast: #fff;
+    --color-success: #28a745;
+    --color-success-shade: #1e7e34;
+    --color-success-contrast: #fff;
+    --color-danger: #cc3333;
+    --color-danger-shade: #992222;
+    --color-danger-contrast: #fff;
+
+    --text-primary: #ffffff;
+    --text-secondary: #888;
+    --text-link: #61dafb;
+
+    --border-color: #444;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -8,15 +38,15 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol";
-    background-color: #272727;
-    color: #ffffff;
+    background-color: var(--bg-body);
+    color: var(--text-primary);
 }
 
 .content {
     max-width: 1000px;
     margin: 0 auto;
     padding: 0.25rem 1rem 1rem;
-    background-color: #1e1e1e;
+    background-color: var(--bg-content);
 }
 
 main.full {
@@ -31,8 +61,8 @@ main.full {
 }
 
 header .content {
-    border-bottom: 2px solid #444;
-    background-color: #060606;
+    border-bottom: 2px solid var(--border-color);
+    background-color: var(--bg-header);
     padding: 1rem;
 }
 
@@ -51,7 +81,7 @@ header nav {
 }
 
 a {
-    color: #61dafb;
+    color: var(--text-link);
     text-decoration: none;
 }
 
@@ -63,7 +93,7 @@ footer {
     text-align: center;
     padding: 10px;
     font-size: 14px;
-    color: #888;
+    color: var(--text-secondary);
 }
 
 .table-wrapper {
@@ -78,16 +108,16 @@ table {
 
 th, td {
     padding: 12px;
-    border: 1px solid #444;
+    border: 1px solid var(--border-color);
     text-align: left;
 }
 
 tr:nth-child(even) {
-    background-color: #2c2c2c;
+    background-color: var(--bg-row-even);
 }
 
 thead {
-    background-color: #333;
+    background-color: var(--bg-thead);
 }
 
 thead th {
@@ -95,7 +125,7 @@ thead th {
 }
 
 .card {
-    background-color: #2c2c2c;
+    background-color: var(--bg-card);
     border-radius: 8px;
     padding: 1rem;
     margin: 1rem auto;
@@ -116,30 +146,34 @@ thead th {
     text-align: center;
 }
 
-input, select {
-    background-color: #1e1e1e;
-    color: #ffffff;
-    border: 1px solid #333;
+input, select, textarea {
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 0.5rem 0.75rem;
     font: inherit;
     transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-input:focus {
+input[type="checkbox"] {
+    accent-color: var(--color-primary);
+}
+
+input:focus, select:focus, textarea:focus {
     outline: none;
-    border-color: #0066cc;
-    background-color: #171717;
+    border-color: var(--color-primary);
+    background-color: var(--bg-input-focus);
 }
 
 ::placeholder {
-    color: #888;
+    color: var(--text-secondary);
 }
 
 button, .btn {
-    --btn-bg: #2a2a2a;
-    --btn-bg-hover: #3a3a3a;
-    --btn-color: #fff;
+    --btn-bg: var(--color-light);
+    --btn-bg-hover: var(--color-light-shade);
+    --btn-color: var(--text-primary);
 
     display: inline-block;
     font: inherit;
@@ -159,21 +193,21 @@ button:hover, .btn:hover {
 }
 
 .btn-primary {
-    --btn-bg: #0066cc;
-    --btn-bg-hover: #004999;
-    --btn-color: #fff;
+    --btn-bg: var(--color-primary);
+    --btn-bg-hover: var(--color-primary-shade);
+    --btn-color: var(--color-primary-contrast);
 }
 
 .btn-success {
-    --btn-bg: #28a745;
-    --btn-bg-hover: #1e7e34;
-    --btn-color: #fff;
+    --btn-bg: var(--color-success);
+    --btn-bg-hover: var(--color-success-shade);
+    --btn-color: var(--color-success-contrast);
 }
 
 .btn-danger {
-    --btn-bg: #cc3333;
-    --btn-bg-hover: #992222;
-    --btn-color: #fff;
+    --btn-bg: var(--color-danger);
+    --btn-bg-hover: var(--color-danger-shade);
+    --btn-color: var(--color-danger-contrast);
 }
 
 .btn-icon {
@@ -195,12 +229,12 @@ button:hover, .btn:hover {
 }
 
 .alert-success {
-    background-color: #2a4d2a;
-    color: #d4edda;
+    background-color: var(--color-success);
+    color: var(--color-success-contrast);
 }
 .alert-danger {
-    background-color: #4d2a2a;
-    color: #f8d7da;
+    background-color: var(--color-danger);
+    color: var(--color-danger-contrast);
 }
 
 .form-table-delete {
@@ -217,11 +251,11 @@ nav.breadcrumb ol {
 nav.breadcrumb ol li+li::before {
     content: "/";
     margin-right: 5px;
-    color: #888;
+    color: var(--text-secondary);
 }
 
 .content-header {
-    border-bottom: 1px solid #444;
+    border-bottom: 1px solid var(--border-color);
     padding-bottom: 0.5rem;
     margin-bottom: 1rem;
 }
