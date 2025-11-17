@@ -15,7 +15,7 @@ body {
 .content {
     max-width: 1000px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 0.25rem 1rem 1rem;
     background-color: #1e1e1e;
 }
 
@@ -32,6 +32,8 @@ main.full {
 
 header .content {
     border-bottom: 2px solid #444;
+    background-color: #060606;
+    padding: 1rem;
 }
 
 header h1 {
@@ -42,6 +44,10 @@ header h1 {
 nav {
     display: flex;
     gap: 15px;
+}
+
+header nav {
+    margin-top: 1rem;
 }
 
 a {
@@ -199,4 +205,23 @@ button:hover, .btn:hover {
 
 .form-table-delete {
     display: inline;
+}
+nav.breadcrumb {
+    font-size: 14px;
+}
+nav.breadcrumb ol {
+    list-style: none;
+    display: flex;
+    gap: 5px;
+}
+nav.breadcrumb ol li+li::before {
+    content: "/";
+    margin-right: 5px;
+    color: #888;
+}
+
+.content-header {
+    border-bottom: 1px solid #444;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
 }

@@ -147,7 +147,7 @@ class Database {
     }
 
     // Fetch a single collection/content type by id
-    public function getCollectionById(int $id)
+    public function getContentType(int $id)
     {
         $stmt = $this->connection->prepare("SELECT id, name, is_singleton FROM content_types WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
@@ -156,7 +156,7 @@ class Database {
     }
 
     // Fetch fields for a given content type, ordered by `order` then id
-    public function getFieldsForCollection(int $contentTypeId)
+    public function getFieldsForContentType(int $contentTypeId)
     {
         $stmt = $this->connection->prepare("SELECT id, name, field_type, is_required, is_translatable, `order` FROM fields WHERE content_type_id = :ctid ORDER BY `order` ASC, id ASC");
         $stmt->bindParam(':ctid', $contentTypeId, PDO::PARAM_INT);

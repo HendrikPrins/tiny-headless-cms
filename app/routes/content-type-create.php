@@ -26,13 +26,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<h1>Create Content Type</h1>
+<div class="content-header">
+    <nav class="breadcrumb" aria-label="breadcrumb">
+        <ol>
+            <li><a href="?page=content-type"><?= $is_singleton ? 'Singletons' : 'Collections' ?></a></li>
+            <li aria-current="page">new</li>
+        </ol>
+    </nav>
+    <h1>Create <?= $is_singleton ? 'Singleton' : 'Collection' ?></h1>
+</div>
 
 <?php if ($error): ?>
     <div class="alert alert-danger"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
 <?php endif; ?>
 
 <form method="post" style="display:flex; flex-direction:column; gap:12px; max-width:520px;">
+    <input type="hidden" name="is_singleton" value="<?= $is_singleton ? '1' : '0' ?>">
     <label for="name">Name</label>
     <input
         type="text"
@@ -42,10 +51,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         required
         value="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"
     >
-    <label style="display:inline-flex; align-items:center; gap:8px;">
-        <input type="checkbox" name="is_singleton" value="1" <?= $is_singleton ? 'checked' : '' ?>>
-        <span>Singleton</span>
-    </label>
     <div style="display:flex; gap:8px; align-items:center;">
         <button type="submit" class="btn-primary">Create</button>
         <a href="?page=content-type" class="btn-secondary">Cancel</a>

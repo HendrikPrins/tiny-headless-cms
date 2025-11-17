@@ -16,11 +16,12 @@ if ($id <= 0) {
 }
 
 $db = Database::getInstance();
-$collection = $db->getCollectionById($id);
-if (!$collection) {
+$contentType = $db->getContentType($id);
+if (!$contentType) {
     echo '<h1>Content type not found</h1>';
     return;
 }
+$isSingleton = (bool)$contentType['is_singleton'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
@@ -114,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$fields = $db->getFieldsForCollection($id);
+$fields = $db->getFieldsForContentType($id);
 
 // Prepare fields for JS - ensure booleans
 $jsFields = array_map(function($f){
@@ -129,15 +130,22 @@ $jsFields = array_map(function($f){
 }, $fields);
 
 ?>
+<div class="content-header">
+    <nav class="breadcrumb" aria-label="breadcrumb">
+        <ol>
+            <li><a href="?page=content-type"><?= $isSingleton ? 'Singletons' : 'Collections' ?></a></li>
+            <li aria-current="page">Edit: <?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?></li>
+        </ol>
+    </nav>
+    <h1>Edit Content Type: <?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?></h1>
+</div>
 
-<h1>Edit Content Type: <?= htmlspecialchars($collection['name'], ENT_QUOTES, 'UTF-8') ?></h1>
-<p><a href="?page=content-type">← Back to content types</a></p>
 <form method="post" style="margin-bottom:12px; display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="rename">
     <label style="display:flex; flex-direction:column; gap:4px;">
         <span>Content Type Name</span>
-        <input type="text" name="new_name" value="<?= htmlspecialchars($collection['name'], ENT_QUOTES, 'UTF-8') ?>" maxlength="255" required style="min-width:260px;">
+        <input type="text" name="new_name" value="<?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?>" maxlength="255" required style="min-width:260px;">
     </label>
     <button type="submit" class="btn-primary">Rename</button>
 </form>
@@ -174,7 +182,7 @@ $jsFields = array_map(function($f){
 <hr style="margin: 32px 0; border:none; border-top:1px solid #ccc;">
 
 <h2>Danger Zone</h2>
-<form method="post" onsubmit="return confirm('⚠️ WARNING: This will permanently delete the content type &quot;<?= htmlspecialchars($collection['name'], ENT_QUOTES, 'UTF-8') ?>&quot; and ALL associated entries, fields, and field values.\n\nThis action cannot be undone.\n\nAre you sure you want to continue?');">
+<form method="post" onsubmit="return confirm('⚠️ WARNING: This will permanently delete the content type &quot;<?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?>&quot; and ALL associated entries, fields, and field values.\n\nThis action cannot be undone.\n\nAre you sure you want to continue?');">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="delete_content_type">
     <p style="margin-bottom:12px;">Deleting this content type will permanently remove all associated content entries, fields, and data.</p>

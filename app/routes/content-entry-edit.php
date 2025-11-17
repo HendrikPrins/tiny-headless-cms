@@ -3,9 +3,10 @@ $db = Database::getInstance();
 $ctId = isset($_GET['ct']) ? (int)$_GET['ct'] : 0;
 $entryId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($ctId <= 0) { echo '<h1>Content type not found</h1>'; return; }
-$ct = $db->getCollectionById($ctId);
+$ct = $db->getContentType($ctId);
 if (!$ct) { echo '<h1>Content type not found</h1>'; return; }
-$fields = $db->getFieldsForCollection($ctId);
+$fields = $db->getFieldsForContentType($ctId);
+$isSingleton = $ct['is_singleton'];
 
 // Get available locales
 $locales = CMS_LOCALES;
@@ -115,10 +116,20 @@ if ($entryId > 0) {
 }
 
 ?>
-<h1><?= $entryId ? 'Edit' : 'Create' ?> Entry: <?= htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8') ?></h1>
-<?php if (!$ct['is_singleton']): ?>
-<p><a href="?page=content-entries&ct=<?= (int)$ctId ?>">← Back to entries</a></p>
-<?php endif; ?>
+<div class="content-header">
+    <nav class="breadcrumb" aria-label="breadcrumb">
+        <ol>
+            <li><a href="?page=content-type"><?= $isSingleton ? 'Singletons' : 'Collections' ?></a></li>
+            <?php if ($ct['is_singleton']): ?>
+                <li aria-current="page"><?= htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8') ?></li>
+            <?php else: ?>
+                <li><a href="?page=content-entries&ct=<?= $ctId ?>"><?= htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8') ?></a></li>
+                <li aria-current="page"><?= $entryId ? 'Edit Entry' : 'New Entry' ?></li>
+            <?php endif; ?>
+        </ol>
+    </nav>
+    <h1><?= $entryId ? 'Edit' : 'Create' ?> Entry: <?= htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8') ?></h1>
+</div>
 
 <!-- Locale switcher tabs -->
 <div style="display:flex; gap:8px; margin-bottom:24px; border-bottom:2px solid #ddd; padding-bottom:8px;">

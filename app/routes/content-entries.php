@@ -2,8 +2,9 @@
 $db = Database::getInstance();
 $ctId = isset($_GET['ct']) ? (int)$_GET['ct'] : 0;
 if ($ctId <= 0) { echo '<h1>Content type not found</h1>'; return; }
-$ct = $db->getCollectionById($ctId);
+$ct = $db->getContentType($ctId);
 if (!$ct) { echo '<h1>Content type not found</h1>'; return; }
+$isSingleton = $ct['is_singleton'];
 
 // Handle delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
@@ -21,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 
 $entries = $db->getEntriesForContentType($ctId);
 $entryCount = count($entries);
-$fields = $db->getFieldsForCollection($ctId);
+$fields = $db->getFieldsForContentType($ctId);
 $previewLocale = $_GET['locale'] ?? '';
 if (!in_array($previewLocale, CMS_LOCALES)) {
     $previewLocale = CMS_LOCALES[0];
@@ -46,8 +47,15 @@ foreach ($entries as $e) {
     ];
 }
 ?>
-<h1>Content: <?= htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8') ?></h1>
-<p><a href="?page=content-type">← Back to content types</a></p>
+<div class="content-header">
+    <nav class="breadcrumb" aria-label="breadcrumb">
+        <ol>
+            <li><a href="?page=content-type"><?= $isSingleton ? 'Singletons' : 'Collections' ?></a></li>
+            <li aria-current="page">Entries: <?= htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8') ?></li>
+        </ol>
+    </nav>
+    <h1>Entries for "<?= htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8') ?>"</h1>
+</div>
 
 <?php if ($ct['is_singleton']): ?>
     <?php if ($entryCount === 0): ?>
