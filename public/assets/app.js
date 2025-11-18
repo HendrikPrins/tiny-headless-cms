@@ -173,3 +173,27 @@ window.initCollectionsEditor = function initCollectionsEditor(cfg) {
     // initial render
     render();
 };
+
+window.initEntryLocaleSwitcher = function initEntryLocaleSwitcher(cfg) {
+    const tabsContainer = document.getElementById('locale-tabs');
+    if (!tabsContainer) return;
+    const panes = Array.from(document.querySelectorAll('[data-locale-pane]'));
+    function setActive(locale) {
+        panes.forEach(p => {
+            p.style.display = (p.getAttribute('data-locale-pane') === locale) ? 'block' : 'none';
+        });
+        Array.from(tabsContainer.querySelectorAll('[data-locale-tab]')).forEach(btn => {
+            const isActive = btn.getAttribute('data-locale-tab') === locale;
+            btn.style.fontWeight = isActive ? 'bold' : 'normal';
+            btn.style.background = isActive ? '#007bff' : '#f0f0f0';
+            btn.style.color = isActive ? 'white' : '#333';
+        });
+    }
+    tabsContainer.addEventListener('click', function(e){
+        if (e.target && e.target.matches('[data-locale-tab]')) {
+            const loc = e.target.getAttribute('data-locale-tab');
+            setActive(loc);
+        }
+    });
+    if (cfg && cfg.current) setActive(cfg.current);
+};

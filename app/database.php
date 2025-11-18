@@ -276,7 +276,7 @@ class Database {
     }
 
     // Save or update values for locale NULL
-    public function saveEntryValues(int $entryId, array $valuesByFieldId, string $locale): void
+    public function saveEntryValues(int $entryId, array $valuesByFieldId, string $locale)
     {
         // Use upsert
         $sql = "INSERT INTO field_values (entry_id, field_id, locale, value) VALUES (:eid, :fid, :loc, :val)
@@ -298,5 +298,4 @@ class Database {
         $stmt->bindParam(':id', $entryId, PDO::PARAM_INT);
         return $stmt->execute();
     }
-
 }

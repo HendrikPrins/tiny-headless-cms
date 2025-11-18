@@ -57,10 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Invalid payload.';
             } else {
                 try {
-                    // Allowed types
                     $allowed = ['string', 'text', 'integer', 'decimal', 'boolean'];
                     foreach ($decoded as $item) {
-                        // Normalize input
                         $fid = isset($item['id']) ? (int)$item['id'] : 0;
                         $deleted = !empty($item['deleted']);
                         $name = isset($item['name']) ? trim((string)$item['name']) : '';
@@ -70,13 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $order = isset($item['order']) ? (int)$item['order'] : 0;
 
                         if ($fid > 0 && $deleted) {
-                            // delete existing field
                             $db->deleteField($fid);
                             continue;
                         }
 
                         if ($fid > 0) {
-                            // update existing
                             if ($name === '') {
                                 throw new InvalidArgumentException('Field name is required for updates');
                             }
@@ -85,12 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             }
                             $db->updateField($fid, $name, $type, $is_required, $is_translatable, $order);
                         } else {
-                            // create new (skip if marked deleted or missing name)
                             if ($deleted) {
                                 continue;
                             }
                             if ($name === '') {
-                                // skip empty new rows silently
                                 continue;
                             }
                             if (!in_array($type, $allowed, true)) {
@@ -100,7 +94,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
 
-                    // Success - PRG
                     $_SESSION['flash_messages'] = ['Fields saved.'];
                     while (ob_get_level() > 0) { ob_end_clean(); }
                     header('Location: admin.php?page=content-type-edit&id=' . $id, true, 303);
@@ -116,7 +109,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $fields = $db->getFieldsForContentType($id);
-
 // Prepare fields for JS - ensure booleans
 $jsFields = array_map(function($f){
     return [
@@ -190,7 +182,6 @@ $jsFields = array_map(function($f){
 </form>
 
 <script>
-    window.__collectionsInitial = <?= json_encode($jsFields, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT) ?>;
     window.addEventListener('DOMContentLoaded', function(){
         if (typeof initCollectionsEditor === 'function') {
             initCollectionsEditor({
@@ -200,7 +191,7 @@ $jsFields = array_map(function($f){
                 saveBtnId: 'save-all-btn',
                 formId: 'save-all-form',
                 inputId: 'fields_json_input',
-                initial: window.__collectionsInitial || []
+                initial: <?= json_encode($jsFields, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT) ?>
             });
         }
     });
