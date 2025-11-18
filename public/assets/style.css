@@ -108,11 +108,18 @@ table {
 
 th, td {
     padding: 12px;
-    border: 1px solid var(--border-color);
     text-align: left;
 }
 
-tr:nth-child(even) {
+table.bordered th, table.bordered td {
+    border: 1px solid var(--border-color);
+}
+
+table.rows-bordered tr th, table.rows-bordered tr td {
+    border-bottom: 1px solid var(--border-color);
+}
+
+table.striped tr:nth-child(even) {
     background-color: var(--bg-row-even);
 }
 

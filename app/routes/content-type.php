@@ -15,7 +15,7 @@ foreach ($types as $t) {
     <p>No collections found.</p>
 <?php else: ?>
     <div class="table-wrapper">
-        <table>
+        <table class="striped bordered">
             <thead>
             <tr>
                 <th>Name</th>
@@ -46,7 +46,7 @@ foreach ($types as $t) {
     <p>No singletons found.</p>
 <?php else: ?>
     <div class="table-wrapper">
-        <table>
+        <table class="striped bordered">
             <thead>
             <tr>
                 <th>Name</th>

@@ -28,7 +28,7 @@ function createSelect(options, value) {
 
 function formatBool(v) { return v ? 1 : 0; }
 
-window.initCollectionsEditor = function initCollectionsEditor(cfg) {
+window.initFieldsEditor = function initCollectionsEditor(cfg) {
     const root = qs(cfg.rootId);
     if (!root) return;
     const list = qs(cfg.listId);

@@ -159,8 +159,48 @@ $jsFields = array_map(function($f){
 <?php endif; ?>
 
 <h2>Fields</h2>
-<div id="collections-editor-root">
-    <div id="collections-fields-list"></div>
+<div id="editor-root">
+    <template id="rowTemplate">
+        <tr>
+            <td>
+                <input type="text" data-column="field_name" value="">
+            </td>
+            <td>
+                <select data-column="field_type">
+                    <option value="string">String</option>
+                    <option value="text">Text</option>
+                    <option value="integer">Integer</option>
+                    <option value="decimal">Decimal</option>
+                    <option value="boolean">Boolean</option>
+                </select>
+            </td>
+            <td>
+                <input type="checkbox" data-column="is_required">
+            </td>
+            <td>
+                <input type="checkbox" data-column="is_translatable">
+            </td>
+            <td>
+                <button type="button" data-column="btn_up" class="btn-primary btn-icon"><?=ICON_CHEVRON_UP?></button>
+                <button type="button" data-column="btn_down" class="btn-primary btn-icon"><?=ICON_CHEVRON_DOWN?></button>
+                <button type="button" data-column="btn_delete" class="btn-danger btn-icon"><?=ICON_TRASH?></button>
+            </td>
+        </tr>
+    </template>
+    <div class="table-wrapper">
+        <table class="rows-bordered" id="fieldTable">
+            <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Required</th>
+                <th>Translatable</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
     <form id="save-all-form" method="post" style="margin-top:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="action" value="save_all">
@@ -171,7 +211,6 @@ $jsFields = array_map(function($f){
     </form>
 </div>
 
-<hr style="margin: 32px 0; border:none; border-top:1px solid #ccc;">
 
 <h2>Danger Zone</h2>
 <form method="post" onsubmit="return confirm('⚠️ WARNING: This will permanently delete the content type &quot;<?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?>&quot; and ALL associated entries, fields, and field values.\n\nThis action cannot be undone.\n\nAre you sure you want to continue?');">
@@ -182,17 +221,44 @@ $jsFields = array_map(function($f){
 </form>
 
 <script>
-    window.addEventListener('DOMContentLoaded', function(){
-        if (typeof initCollectionsEditor === 'function') {
-            initCollectionsEditor({
-                rootId: 'collections-editor-root',
-                listId: 'collections-fields-list',
-                addBtnId: 'add-field-btn',
-                saveBtnId: 'save-all-btn',
-                formId: 'save-all-form',
-                inputId: 'fields_json_input',
-                initial: <?= json_encode($jsFields, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT) ?>
-            });
+    function addField(field) {
+        if (!field) {
+            field = {};
         }
+        const tableBody = document.querySelector('#fieldTable tbody');
+        const template = document.getElementById('rowTemplate');
+        const row = template.content.cloneNode(true).querySelector('tr');
+        row.setAttribute("data-field-id", field.id || null);
+        row.querySelector('[data-column="field_name"]').value = field.name || '';
+        row.querySelector('[data-column="field_type"]').value = field.field_type || 'string';
+        row.querySelector('[data-column="is_required"]').checked = field.is_required || false;
+        row.querySelector('[data-column="is_translatable"]').checked = field.is_translatable || false;
+        // TODO add event listeners for buttons
+        row.querySelector('[data-column="btn_up"]').addEventListener('click', function(){
+            const prev = row.previousElementSibling;
+            if (prev) {
+                row.parentNode.insertBefore(row, prev);
+            }
+        });
+        row.querySelector('[data-column="btn_down"]').addEventListener('click', function(){
+            const next = row.nextElementSibling;
+            if (next) {
+                row.parentNode.insertBefore(next, row);
+            }
+        });
+        row.querySelector('[data-column="btn_delete"]').addEventListener('click', function(){
+            row.remove();
+        });
+        tableBody.appendChild(row);
+    }
+
+    window.addEventListener('DOMContentLoaded', function(){
+        const fields = <?= json_encode($jsFields, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT) ?>;
+        console.warn(fields);
+        fields.forEach(f => addField(f));
+
+        document.getElementById("add-field-btn").addEventListener("click", function(){
+            addField();
+        });
     });
 </script>
