@@ -174,26 +174,48 @@ window.initCollectionsEditor = function initCollectionsEditor(cfg) {
     render();
 };
 
-window.initEntryLocaleSwitcher = function initEntryLocaleSwitcher(cfg) {
-    const tabsContainer = document.getElementById('locale-tabs');
-    if (!tabsContainer) return;
-    const panes = Array.from(document.querySelectorAll('[data-locale-pane]'));
-    function setActive(locale) {
-        panes.forEach(p => {
-            p.style.display = (p.getAttribute('data-locale-pane') === locale) ? 'block' : 'none';
+
+window.initEntryLocaleMultiToggle = function initEntryLocaleMultiToggle(cfg){
+
+    const bar = document.getElementById('locale-toggle-bar');
+    if (!bar) return;
+    const active = new Set(["__global", cfg.locales[0]]);
+    function update(){
+        const blocks = document.querySelectorAll('[data-locale-field]');
+        blocks.forEach(b => {
+            const loc = b.getAttribute('data-locale-field');
+            b.style.display = active.has(loc) ? 'flex' : 'none';
         });
-        Array.from(tabsContainer.querySelectorAll('[data-locale-tab]')).forEach(btn => {
-            const isActive = btn.getAttribute('data-locale-tab') === locale;
-            btn.style.fontWeight = isActive ? 'bold' : 'normal';
-            btn.style.background = isActive ? '#007bff' : '#f0f0f0';
-            btn.style.color = isActive ? 'white' : '#333';
+        bar.querySelectorAll('[data-locale-toggle]').forEach(btn => {
+            const loc = btn.getAttribute('data-locale-toggle');
+            const isOn = active.has(loc);
+            btn.classList.toggle('active', isOn);
+            btn.style.background = isOn ? '#007bff' : '#f0f0f0';
+            btn.style.color = isOn ? '#fff' : '#333';
+            btn.style.fontWeight = isOn ? 'bold' : 'normal';
         });
     }
-    tabsContainer.addEventListener('click', function(e){
-        if (e.target && e.target.matches('[data-locale-tab]')) {
-            const loc = e.target.getAttribute('data-locale-tab');
-            setActive(loc);
+    bar.addEventListener('click', e => {
+        const btn = e.target.closest('[data-locale-toggle]');
+        if (!btn) return;
+        const loc = btn.getAttribute('data-locale-toggle');
+        if (loc === '__global') {
+            if (active.has('__global'))  {
+                active.delete('__global');
+            } else {
+                active.add('__global');
+            }
+        } else if (!active.has(loc)) {
+            const hasGlobal = active.has('__global');
+            active.clear();
+            if (hasGlobal) {
+                active.add('__global');
+            }
+            active.add(loc);
         }
+        if (active.size === 0) active.add('__global');
+        update();
     });
-    if (cfg && cfg.current) setActive(cfg.current);
+    if (active.size === 0) active.add('__global');
+    update();
 };
