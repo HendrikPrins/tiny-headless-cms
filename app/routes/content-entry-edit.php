@@ -117,11 +117,11 @@ if ($entryId > 0) {
     <h1><?= $entryId ? 'Edit' : 'Create' ?> Entry: <?= htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8') ?></h1>
 </div>
 
-<!-- Multi-toggle locale/global buttons -->
-<div id="locale-toggle-bar" style="display:flex; gap:8px; margin-bottom:24px; border-bottom:2px solid #ddd; padding-bottom:8px; flex-wrap:wrap;">
-    <button type="button" data-locale-toggle="__global" class="locale-toggle active" style="padding:8px 14px; border:none; cursor:pointer; border-radius:4px; background:#007bff; color:#fff; font-weight:bold;">GLOBAL</button>
+
+<div id="locale-toggle-bar" class="field-locale-toggle-bar">
+    Show: <button type="button" data-locale-toggle="__global" class="btn">GLOBAL</button>
     <?php foreach ($locales as $loc): ?>
-        <button type="button" data-locale-toggle="<?= htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ?>" class="locale-toggle<?= $loc === $currentLocale ? ' active' : '' ?>" style="padding:8px 14px; border:none; cursor:pointer; border-radius:4px; background:<?= $loc === $currentLocale ? '#007bff' : '#f0f0f0' ?>; color:<?= $loc === $currentLocale ? '#fff' : '#333' ?>; font-weight:<?= $loc === $currentLocale ? 'bold' : 'normal' ?>;">
+        <button type="button" data-locale-toggle="<?= htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ?>" class="btn">
             <?= strtoupper(htmlspecialchars($loc, ENT_QUOTES, 'UTF-8')) ?>
         </button>
     <?php endforeach; ?>
@@ -133,8 +133,8 @@ if ($entryId > 0) {
     <?php foreach ($fields as $f): $fid=(int)$f['id']; $name = htmlspecialchars($f['name'], ENT_QUOTES, 'UTF-8'); $ft=$f['field_type']; $isTranslatable=(bool)$f['is_translatable']; ?>
         <?php if ($isTranslatable): ?>
             <?php foreach ($locales as $loc): $val = $valuesByLocale[$loc][$fid] ?? ''; $inputName='field_'.$fid.'_'.$loc; ?>
-                <label data-locale-field="<?= htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ?>" style="display:flex; flex-direction:column; gap:6px;">
-                    <span><?= $name ?><?= $f['is_required'] ? ' *' : '' ?> <span style="font-size:0.75em; color:#666; font-weight:normal;">[<?= strtoupper(htmlspecialchars($loc, ENT_QUOTES, 'UTF-8')) ?>]</span></span>
+                <label class="field" data-locale-field="<?= htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ?>">
+                    <span><?= $name ?><?= $f['is_required'] ? ' *' : '' ?> <span class="field-locale">[<?= strtoupper(htmlspecialchars($loc, ENT_QUOTES, 'UTF-8')) ?>]</span></span>
                     <?php if ($ft === 'text'): ?>
                         <textarea name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" rows="4" style="resize:vertical;"><?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?></textarea>
                     <?php elseif ($ft === 'integer'): ?>
@@ -149,7 +149,7 @@ if ($entryId > 0) {
                 </label>
             <?php endforeach; ?>
         <?php else: $val = $valuesByLocale[''][$fid] ?? ''; $inputName='field_'.$fid; ?>
-            <label data-locale-field="__global" style="display:flex; flex-direction:column; gap:6px;">
+            <label class="field" data-locale-field="__global">
                 <span><?= $name ?><?= $f['is_required'] ? ' *' : '' ?></span>
                 <?php if ($ft === 'text'): ?>
                     <textarea name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" rows="4" style="resize:vertical;"><?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?></textarea>

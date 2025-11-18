@@ -176,23 +176,24 @@ window.initCollectionsEditor = function initCollectionsEditor(cfg) {
 
 
 window.initEntryLocaleMultiToggle = function initEntryLocaleMultiToggle(cfg){
-
     const bar = document.getElementById('locale-toggle-bar');
     if (!bar) return;
-    const active = new Set(["__global", cfg.locales[0]]);
+    const active = new Set();
     function update(){
+        if (active.size === 0) {
+            active.add('__global');
+            if (cfg.locales.length > 0) {
+                active.add(cfg.locales[0]);
+            }
+        }
         const blocks = document.querySelectorAll('[data-locale-field]');
         blocks.forEach(b => {
             const loc = b.getAttribute('data-locale-field');
-            b.style.display = active.has(loc) ? 'flex' : 'none';
+            b.classList.toggle("field-hidden", !active.has(loc));
         });
         bar.querySelectorAll('[data-locale-toggle]').forEach(btn => {
             const loc = btn.getAttribute('data-locale-toggle');
-            const isOn = active.has(loc);
-            btn.classList.toggle('active', isOn);
-            btn.style.background = isOn ? '#007bff' : '#f0f0f0';
-            btn.style.color = isOn ? '#fff' : '#333';
-            btn.style.fontWeight = isOn ? 'bold' : 'normal';
+            btn.classList.toggle('btn-primary', active.has(loc));
         });
     }
     bar.addEventListener('click', e => {
@@ -206,16 +207,22 @@ window.initEntryLocaleMultiToggle = function initEntryLocaleMultiToggle(cfg){
                 active.add('__global');
             }
         } else if (!active.has(loc)) {
-            const hasGlobal = active.has('__global');
-            active.clear();
-            if (hasGlobal) {
-                active.add('__global');
+            if (e.ctrlKey) {
+                // ctrl+click adds to selection
+                active.add(loc);
+            } else {
+                // normal click clears other selections
+                const hasGlobal = active.has('__global');
+                active.clear();
+                if (hasGlobal) {
+                    active.add('__global');
+                }
+                active.add(loc);
             }
-            active.add(loc);
+        } else {
+            active.delete(loc);
         }
-        if (active.size === 0) active.add('__global');
         update();
     });
-    if (active.size === 0) active.add('__global');
     update();
 };

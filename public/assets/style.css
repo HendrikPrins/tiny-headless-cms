@@ -129,7 +129,7 @@ thead th {
     border-radius: 8px;
     padding: 1rem;
     margin: 1rem auto;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .form-container {
@@ -232,6 +232,7 @@ button:hover, .btn:hover {
     background-color: var(--color-success);
     color: var(--color-success-contrast);
 }
+
 .alert-danger {
     background-color: var(--color-danger);
     color: var(--color-danger-contrast);
@@ -240,15 +241,18 @@ button:hover, .btn:hover {
 .form-table-delete {
     display: inline;
 }
+
 nav.breadcrumb {
     font-size: 14px;
 }
+
 nav.breadcrumb ol {
     list-style: none;
     display: flex;
     gap: 5px;
 }
-nav.breadcrumb ol li+li::before {
+
+nav.breadcrumb ol li + li::before {
     content: "/";
     margin-right: 5px;
     color: var(--text-secondary);
@@ -258,4 +262,30 @@ nav.breadcrumb ol li+li::before {
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 0.5rem;
     margin-bottom: 1rem;
+}
+
+.field-locale-toggle-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 24px;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.field-hidden {
+    display: none;
+}
+
+.field-locale {
+    font-size: 0.75em;
+    color: var(--text-secondary);
+    font-weight: normal;
 }
