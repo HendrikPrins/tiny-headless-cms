@@ -158,7 +158,7 @@ sort($allDirectories, SORT_NATURAL|SORT_FLAG_CASE);
 $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
 
 // Fetch assets only for current directory
-$assets = $db->getAssets($currentDir === '' ? null : $currentDir);
+$assets = $db->getAssets($currentDir);
 ?>
 
 <div class="content-header">
@@ -178,26 +178,26 @@ $assets = $db->getAssets($currentDir === '' ? null : $currentDir);
     </nav>
 </div>
 
-<div style="margin-bottom: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-    <button type="button" onclick="showCreateDirectoryDialog()" class="btn-primary">📁 New Directory</button>
+<div class="buttons">
+    <button type="button" onclick="showCreateDirectoryDialog()" class="btn-primary"><?=ICON_FOLDER_PLUS?> New Directory</button>
     <?php if (!empty($currentDir)): ?>
-        <button type="button" onclick="showRenameDirectoryDialog()" class="btn-secondary">✏️ Rename Directory</button>
+        <button type="button" onclick="showRenameDirectoryDialog()" class="btn-secondary"><?=ICON_PENCIL?> Rename Directory</button>
         <a href="?page=assets&dir=<?= urlencode(dirname($currentDir) === '.' ? '' : dirname($currentDir)) ?>" class="btn-secondary">⬆️ Up</a>
     <?php endif; ?>
 </div>
 
-<dialog id="create-directory-dialog" style="border: none; border-radius: 8px; padding: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-    <div style="padding: 20px;">
-        <h2 style="margin-top: 0;">Create New Directory</h2>
-        <form method="post" action="admin.php?page=assets<?= $currentDir !== '' ? '&dir=' . urlencode($currentDir) : '' ?>" style="margin:0;">
+<dialog id="create-directory-dialog" class="dialog">
+    <div>
+        <h2>Create New Directory</h2>
+        <form method="post" action="?page=assets<?= $currentDir !== '' ? '&dir=' . urlencode($currentDir) : '' ?>" style="margin:0;">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="create_directory">
             <input type="hidden" name="parent" value="<?= htmlspecialchars($currentDir, ENT_QUOTES, 'UTF-8') ?>">
-            <label style="display: block; margin-bottom: 8px;">
-                <span style="display: block; margin-bottom: 4px;">Directory Name:</span>
+            <label>
+                <span>Directory Name:</span>
                 <input type="text" name="dirname" required pattern="[a-zA-Z0-9_-]+" title="Only letters, numbers, hyphens and underscores allowed" style="width: 300px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
             </label>
-            <div style="display: flex; gap: 8px; margin-top: 16px;">
+            <div class="dialog-footer">
                 <button type="submit" class="btn-primary">Create</button>
                 <button type="button" onclick="document.getElementById('create-directory-dialog').close()" class="btn-secondary">Cancel</button>
             </div>
@@ -205,18 +205,18 @@ $assets = $db->getAssets($currentDir === '' ? null : $currentDir);
     </div>
 </dialog>
 
-<dialog id="rename-directory-dialog" style="border:none; border-radius:8px; padding:0; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
-  <div style="padding:20px;">
-    <h2 style="margin-top:0;">Rename Directory</h2>
-    <form method="post" action="admin.php?page=assets&dir=<?= urlencode($currentDir) ?>" style="margin:0; display:flex; flex-direction:column; gap:12px;">
+<dialog id="rename-directory-dialog" class="dialog">
+  <div>
+    <h2>Rename Directory</h2>
+    <form method="post" action="?page=assets&dir=<?= urlencode($currentDir) ?>" style="margin:0; display:flex; flex-direction:column; gap:12px;">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES) ?>">
       <input type="hidden" name="action" value="rename_directory">
       <input type="hidden" name="current_dir" value="<?= htmlspecialchars($currentDir, ENT_QUOTES) ?>">
-      <label style="display:flex; flex-direction:column; gap:4px;">
+      <label>
         <span>New Name</span>
         <input type="text" name="new_dir_name" required pattern="[a-zA-Z0-9_-]+" title="Letters, numbers, hyphens, underscores" style="padding:8px; border:1px solid #ccc; border-radius:4px;">
       </label>
-      <div style="display:flex; gap:8px;">
+      <div class="dialog-footer">
         <button type="submit" class="btn-primary">Rename</button>
         <button type="button" onclick="document.getElementById('rename-directory-dialog').close()" class="btn-secondary">Cancel</button>
       </div>
@@ -269,7 +269,7 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
            style="display: flex; flex-direction: column; align-items: center; padding: 16px; border: 1px solid #ddd; border-radius: 8px; text-decoration: none; color: inherit; background: #f9f9f9; transition: background 0.2s;"
            onmouseover="this.style.background='#f0f0f0'"
            onmouseout="this.style.background='#f9f9f9'">
-            <span style="font-size: 3em;">📁</span>
+            <span style="font-size: 3em;"><?=ICON_FOLDER?></span>
             <span style="margin-top: 8px; text-align: center; word-break: break-word;"><?= htmlspecialchars($dirName, ENT_QUOTES, 'UTF-8') ?></span>
         </a>
     <?php endforeach; ?>
@@ -311,7 +311,7 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
             <tbody>
                 <?php foreach ($assets as $asset): ?>
                     <tr>
-                        <td style="width: 80px;">
+                        <td>
                             <?php if (strpos($asset['mime_type'], 'image/') === 0): ?>
                                 <img src="/uploads/<?= htmlspecialchars($asset['path'], ENT_QUOTES, 'UTF-8') ?>"
                                      alt="<?= htmlspecialchars($asset['filename'], ENT_QUOTES, 'UTF-8') ?>"
@@ -324,24 +324,24 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
                         <td><?= htmlspecialchars($asset['mime_type'] ?? 'unknown', ENT_QUOTES, 'UTF-8') ?></td>
                         <td><?= formatFileSize($asset['size']) ?></td>
                         <td><?= date('Y-m-d H:i', strtotime($asset['created_at'])) ?></td>
-                        <td style="white-space: nowrap;">
+                        <td class="table-nowrap">
                             <a href="/uploads/<?= htmlspecialchars($asset['path'], ENT_QUOTES, 'UTF-8') ?>"
                                target="_blank"
-                               class="btn btn-icon btn-primary"
-                               title="View/Download">👁️</a>
+                               class="btn btn-icon btn-light"
+                               title="View/Download"><?=ICON_EYE?></a>
                             <button type="button"
-                                    class="btn btn-icon btn-secondary"
+                                    class="btn btn-icon btn-light"
                                     onclick="copyToClipboard('/uploads/<?= htmlspecialchars($asset['path'], ENT_QUOTES, 'UTF-8') ?>')"
-                                    title="Copy URL">📋</button>
+                                    title="Copy URL"><?=ICON_LINK?></button>
                             <button type="button"
-                                    class="btn btn-icon btn-secondary"
+                                    class="btn btn-icon btn-light"
                                     onclick="showMoveDialog(<?= (int)$asset['id'] ?>, '<?= htmlspecialchars($asset['directory'], ENT_QUOTES, 'UTF-8') ?>')"
-                                    title="Move">📦</button>
+                                    title="Move"><?=ICON_FILE_ARROW_RIGHT?></button>
                             <form method="post" style="display: inline;" onsubmit="return confirm('Delete this asset?');">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="asset_id" value="<?= (int)$asset['id'] ?>">
-                                <button type="submit" class="btn-icon btn-danger" title="Delete">🗑️</button>
+                                <button type="submit" class="btn-icon btn-danger" title="Delete"><?=ICON_TRASH?></button>
                             </form>
                         </td>
                     </tr>
@@ -414,7 +414,7 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
         progressItem.style.cssText = 'margin-bottom: 12px; padding: 12px; background: white; border-radius: 4px;';
         progressItem.innerHTML = `
             <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <span style="font-weight: 500;">${escapeHtml(file.name)}</span>
+                <strong>${escapeHtml(file.name)}</strong>
                 <span id="progress-${fileId}">0%</span>
             </div>
             <div style="height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden;">

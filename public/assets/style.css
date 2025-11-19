@@ -134,6 +134,10 @@ thead th {
     border-width: 2px;
 }
 
+td.table-nowrap {
+    white-space: nowrap;
+}
+
 .card {
     background-color: var(--bg-card);
     border-radius: 8px;
@@ -185,7 +189,9 @@ button, .btn {
     --btn-bg-hover: var(--color-light-shade);
     --btn-color: var(--text-primary);
 
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     font: inherit;
     font-weight: 500;
     padding: 0.45rem 0.9rem;
@@ -200,6 +206,17 @@ button, .btn {
 button:hover, .btn:hover {
     background-color: var(--btn-bg-hover);
     text-decoration: none;
+}
+
+button > svg, .btn > svg {
+    width: 1em;
+    height: 1em;
+}
+
+.btn-light {
+    --btn-bg: var(--color-light);
+    --btn-bg-hover: var(--color-light-shade);
+    --btn-color: var(--color-light-contrast);
 }
 
 .btn-primary {
@@ -235,6 +252,11 @@ button:hover, .btn:hover {
 .btn-icon:hover {
     background-color: transparent !important;
     color: var(--btn-bg-hover);
+}
+
+.btn-icon.btn-light {
+    --btn-bg: var(--text-primary);
+    --btn-bg-hover: var(--text-secondary);
 }
 
 
@@ -309,4 +331,37 @@ nav.breadcrumb ol li + li::before {
     font-size: 0.75em;
     color: var(--text-secondary);
     font-weight: normal;
+}
+
+.dialog {
+    border: none;
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.dialog > div {
+    padding: 1rem;
+}
+
+.dialog-footer {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.dialog label, .dialog label span {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
 }
