@@ -43,6 +43,15 @@ CREATE TABLE field_values
     PRIMARY KEY unique_field_locale (entry_id, field_id, locale)
 );
 
+CREATE TABLE assets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    filename VARCHAR(255) NOT NULL,
+    path VARCHAR(500) NOT NULL,
+    mime_type VARCHAR(100),
+    size BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_entries_content_type ON entries (content_type_id);
 CREATE INDEX idx_field_values_entry_field ON field_values (entry_id, field_id);
 CREATE INDEX idx_field_values_locale ON field_values (locale);

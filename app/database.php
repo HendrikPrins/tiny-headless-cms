@@ -534,4 +534,51 @@ class Database {
                 return $value;
         }
     }
+
+    // Asset Methods
+
+    /**
+     * Create asset record
+     */
+    public function createAsset(string $filename, string $path, ?string $mimeType, ?int $size): int
+    {
+        $stmt = $this->connection->prepare("INSERT INTO assets (filename, path, mime_type, size) VALUES (:filename, :path, :mime, :size)");
+        $stmt->bindParam(':filename', $filename);
+        $stmt->bindParam(':path', $path);
+        $stmt->bindParam(':mime', $mimeType);
+        $stmt->bindParam(':size', $size, PDO::PARAM_INT);
+        $stmt->execute();
+        return (int)$this->connection->lastInsertId();
+    }
+
+    /**
+     * Get all assets
+     */
+    public function getAssets(): array
+    {
+        $stmt = $this->connection->query("SELECT id, filename, path, mime_type, size, created_at FROM assets ORDER BY created_at DESC");
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Get asset by ID
+     */
+    public function getAssetById(int $id): ?array
+    {
+        $stmt = $this->connection->prepare("SELECT id, filename, path, mime_type, size, created_at FROM assets WHERE id = :id");
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        $result = $stmt->fetch();
+        return $result ?: null;
+    }
+
+    /**
+     * Delete asset
+     */
+    public function deleteAsset(int $id): bool
+    {
+        $stmt = $this->connection->prepare("DELETE FROM assets WHERE id = :id");
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
 }

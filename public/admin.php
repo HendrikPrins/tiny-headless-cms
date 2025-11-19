@@ -33,6 +33,7 @@ $routes = [
     "collections-create",
     "collections-edit",
     "assets",
+    "asset-upload",
     "users",
 ];
 

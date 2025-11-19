@@ -49,6 +49,7 @@ if (!defined('CMS_DB_NAME')) define('CMS_DB_NAME', 'cms_database');
 if (!defined('CMS_UPLOAD_DIR')) define('CMS_UPLOAD_DIR', __DIR__ . '/../uploads');
 
 const CMS_LOCALES = ['en', 'nl'];
+const CMS_MAX_UPLOAD_SIZE = 1024 * 1020; // Default 1MB with a small buffer
 
 require __DIR__ . '/database.php';
 require __DIR__ . '/icons.php';
