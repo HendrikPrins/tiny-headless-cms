@@ -69,3 +69,12 @@ Use cases for singletons include:
 - Site-wide settings such as colors, logos and metadata
 
 ### Assets
+
+
+## HTTP API
+
+index.php?singleton=book
+index.php?singleton=book&locale=en
+index.php?singleton=book&locale[0]=en&locale[1]=nl
+index.php?collection=books
+index.php?collection=books&locale=en&limit=10&offset=20

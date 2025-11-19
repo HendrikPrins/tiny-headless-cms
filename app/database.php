@@ -338,4 +338,200 @@ class Database {
         $stmt->bindParam(':fid', $fieldId, PDO::PARAM_INT);
         $stmt->execute();
     }
+
+    // API Methods
+
+    /**
+     * Get singleton data by content type name
+     * @param string $name Content type name
+     * @param array|null $locales Array of locales to fetch, null for all
+     * @return array|null Singleton data or null if not found
+     */
+    public function getSingletonByName(string $name, ?array $locales = null): ?array
+    {
+        // Get content type
+        $stmt = $this->connection->prepare("SELECT id, name FROM content_types WHERE name = :name AND is_singleton = 1");
+        $stmt->bindParam(':name', $name);
+        $stmt->execute();
+        $contentType = $stmt->fetch();
+
+        if (!$contentType) {
+            return null;
+        }
+
+        // Get the singleton entry
+        $stmt = $this->connection->prepare("SELECT id FROM entries WHERE content_type_id = :ctid LIMIT 1");
+        $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
+        $stmt->execute();
+        $entry = $stmt->fetch();
+
+        if (!$entry) {
+            return null;
+        }
+
+        // Get fields
+        $fields = $this->getFieldsForContentType($contentType['id']);
+
+        // Get field values
+        $data = $this->buildEntryData($entry['id'], $fields, $locales);
+
+        return $data;
+    }
+
+    /**
+     * Get collection entries by content type name
+     * @param string $name Content type name
+     * @param array|null $locales Array of locales to fetch, null for all
+     * @param int $limit Maximum number of entries to return
+     * @param int $offset Number of entries to skip
+     * @return array Array of entries
+     */
+    public function getCollectionByName(string $name, ?array $locales = null, int $limit = 100, int $offset = 0): array
+    {
+        // Get content type
+        $stmt = $this->connection->prepare("SELECT id, name FROM content_types WHERE name = :name AND is_singleton = 0");
+        $stmt->bindParam(':name', $name);
+        $stmt->execute();
+        $contentType = $stmt->fetch();
+
+        if (!$contentType) {
+            return [];
+        }
+
+        // Get entries with limit and offset
+        $stmt = $this->connection->prepare("SELECT id FROM entries WHERE content_type_id = :ctid ORDER BY id DESC LIMIT :limit OFFSET :offset");
+        $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $entries = $stmt->fetchAll();
+
+        if (empty($entries)) {
+            return [];
+        }
+
+        // Get fields
+        $fields = $this->getFieldsForContentType($contentType['id']);
+
+        // Build data for each entry
+        $result = [];
+        foreach ($entries as $entry) {
+            $result[] = $this->buildEntryData($entry['id'], $fields, $locales);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get total count of entries for a collection by content type name
+     * @param string $name Content type name
+     * @return int Total number of entries
+     */
+    public function getCollectionTotalCount(string $name): int
+    {
+        $stmt = $this->connection->prepare("SELECT id FROM content_types WHERE name = :name AND is_singleton = 0");
+        $stmt->bindParam(':name', $name);
+        $stmt->execute();
+        $contentType = $stmt->fetch();
+        if (!$contentType) {
+            return 0;
+        }
+        $stmt = $this->connection->prepare("SELECT COUNT(*) as total FROM entries WHERE content_type_id = :ctid");
+        $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch();
+        return $row ? (int)$row['total'] : 0;
+    }
+
+    /**
+     * Build entry data with field values
+     * @param int $entryId Entry ID
+     * @param array $fields Array of field definitions
+     * @param array|null $locales Array of locales to fetch, null for all
+     * @return array Entry data with id and field values
+     */
+    private function buildEntryData(int $entryId, array $fields, ?array $locales = null): array
+    {
+        $data = ['id' => $entryId];
+
+        // Build WHERE clause for locales
+        if ($locales === null) {
+            // Fetch all locales
+            $localeWhere = "1=1";
+            $params = [':eid' => $entryId];
+        } else {
+            // Fetch specific locales + non-translatable (locale='')
+            $localeList = array_merge([''], $locales); // Always include empty string for non-translatable
+            $placeholders = [];
+            $params = [':eid' => $entryId];
+            foreach ($localeList as $i => $loc) {
+                $key = ":loc{$i}";
+                $placeholders[] = $key;
+                $params[$key] = $loc;
+            }
+            $localeWhere = "locale IN (" . implode(',', $placeholders) . ")";
+        }
+
+        $sql = "SELECT field_id, locale, value FROM field_values WHERE entry_id = :eid AND {$localeWhere}";
+        $stmt = $this->connection->prepare($sql);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->execute();
+        $values = $stmt->fetchAll();
+
+        // Organize values by field
+        foreach ($fields as $field) {
+            $fieldId = $field['id'];
+            $fieldName = $field['name'];
+            $isTranslatable = (bool)$field['is_translatable'];
+
+            if ($isTranslatable) {
+                // For translatable fields, create an object with locale keys
+                $data[$fieldName] = new stdClass();
+                foreach ($values as $val) {
+                    if ((int)$val['field_id'] === $fieldId && $val['locale'] !== '') {
+                        $locale = $val['locale'];
+                        $data[$fieldName]->$locale = $this->castValue($val['value'], $field['field_type']);
+                    }
+                }
+            } else {
+                // For non-translatable fields, use the value directly
+                foreach ($values as $val) {
+                    if ((int)$val['field_id'] === $fieldId && $val['locale'] === '') {
+                        $data[$fieldName] = $this->castValue($val['value'], $field['field_type']);
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Cast value to appropriate type based on field type
+     * @param mixed $value The value to cast
+     * @param string $fieldType The field type
+     * @return mixed The casted value
+     */
+    private function castValue($value, string $fieldType)
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        switch ($fieldType) {
+            case 'integer':
+                return (int)$value;
+            case 'decimal':
+                return (float)$value;
+            case 'boolean':
+                return (bool)$value;
+            case 'string':
+            case 'text':
+            default:
+                return $value;
+        }
+    }
 }
