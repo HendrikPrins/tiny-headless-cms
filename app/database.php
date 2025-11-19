@@ -298,4 +298,44 @@ class Database {
         $stmt->bindParam(':id', $entryId, PDO::PARAM_INT);
         return $stmt->execute();
     }
+
+    public function migrateFieldToTranslatable(int $fieldId, string $primaryLocale)
+    {
+        // Copy value from locale='' to primary locale if not already present
+        $stmt = $this->connection->prepare("
+        INSERT INTO field_values (entry_id, field_id, locale, value)
+        SELECT entry_id, field_id, :loc, value
+        FROM field_values
+        WHERE field_id = :fid AND locale = ''
+        ON DUPLICATE KEY UPDATE value = VALUES(value)
+    ");
+        $stmt->bindParam(':fid', $fieldId, PDO::PARAM_INT);
+        $stmt->bindParam(':loc', $primaryLocale);
+        $stmt->execute();
+
+        // Delete all locale='' values for this field
+        $stmt = $this->connection->prepare("DELETE FROM field_values WHERE field_id = :fid AND locale = ''");
+        $stmt->bindParam(':fid', $fieldId, PDO::PARAM_INT);
+        $stmt->execute();
+    }
+
+    public function migrateFieldToNonTranslatable(int $fieldId, string $primaryLocale)
+    {
+        // Copy value from primary locale to locale='' if not already present
+        $stmt = $this->connection->prepare("
+        INSERT INTO field_values (entry_id, field_id, locale, value)
+        SELECT entry_id, field_id, '', value
+        FROM field_values
+        WHERE field_id = :fid AND locale = :loc
+        ON DUPLICATE KEY UPDATE value = VALUES(value)
+    ");
+        $stmt->bindParam(':fid', $fieldId, PDO::PARAM_INT);
+        $stmt->bindParam(':loc', $primaryLocale);
+        $stmt->execute();
+
+        // Delete all locale-specific values for this field
+        $stmt = $this->connection->prepare("DELETE FROM field_values WHERE field_id = :fid AND locale != ''");
+        $stmt->bindParam(':fid', $fieldId, PDO::PARAM_INT);
+        $stmt->execute();
+    }
 }

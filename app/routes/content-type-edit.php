@@ -1,5 +1,4 @@
 <?php
-
 $errors = [];
 $messages = [];
 
@@ -58,6 +57,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 try {
                     $allowed = ['string', 'text', 'integer', 'decimal', 'boolean'];
+                    $oldFields = [];
+                    foreach ($db->getFieldsForContentType($id) as $f) {
+                        $oldFields[$f['id']] = [
+                                'id' => (int)$f['id'],
+                                'name' => $f['name'],
+                                'field_type' => $f['field_type'],
+                                'is_required' => (bool)$f['is_required'],
+                                'is_translatable' => (bool)$f['is_translatable'],
+                                'order' => (int)$f['order']
+                        ];
+                    }
                     foreach ($decoded as $item) {
                         $fid = isset($item['id']) ? (int)$item['id'] : 0;
                         $deleted = !empty($item['deleted']);
@@ -80,6 +90,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 throw new InvalidArgumentException('Invalid field type for updates');
                             }
                             $db->updateField($fid, $name, $type, $is_required, $is_translatable, $order);
+                            $oldField = $oldFields[$fid] ?? null;
+                            if ($oldField && ($oldField['is_translatable'] !== $is_translatable)) {
+                                $primaryLocale = CMS_LOCALES[0];
+                                if ($is_translatable) {
+                                    $db->migrateFieldToTranslatable($fid, $primaryLocale);
+                                } else {
+                                    $db->migrateFieldToNonTranslatable($fid, $primaryLocale);
+                                }
+                            }
                         } else {
                             if ($deleted) {
                                 continue;
@@ -102,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $errors[] = $e->getMessage();
                 } catch (PDOException $e) {
                     $errors[] = 'Database error.';
+                    $errors[] = $e->getMessage();
                 }
             }
         }
