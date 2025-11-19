@@ -2,6 +2,7 @@
 $error = null;
 $name = '';
 $is_singleton = isset($_GET['singleton']) && $_GET['singleton'] === 'true' || false;
+$title = $is_singleton ? 'Create Singleton' : 'Create Collection';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = isset($_POST['name']) ? trim($_POST['name']) : '';
@@ -33,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <li aria-current="page">new</li>
         </ol>
     </nav>
-    <h1>Create <?= $is_singleton ? 'Singleton' : 'Collection' ?></h1>
+    <h1><?= $title ?></h1>
 </div>
 
 <?php if ($error): ?>

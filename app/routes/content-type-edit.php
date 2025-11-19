@@ -13,13 +13,13 @@ if ($id <= 0) {
     echo '<h1>Content type not found</h1>';
     return;
 }
-
 $db = Database::getInstance();
 $contentType = $db->getContentType($id);
 if (!$contentType) {
     echo '<h1>Content type not found</h1>';
     return;
 }
+$title = 'Edit Content Type: ' . htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8');
 $isSingleton = (bool)$contentType['is_singleton'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

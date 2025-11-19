@@ -5,6 +5,7 @@ $entryId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($ctId <= 0) { echo '<h1>Content type not found</h1>'; return; }
 $ct = $db->getContentType($ctId);
 if (!$ct) { echo '<h1>Content type not found</h1>'; return; }
+$title = ($entryId > 0 ? 'Edit Entry: ' : 'Create Entry: ') . htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8');
 $fields = $db->getFieldsForContentType($ctId);
 $isSingleton = $ct['is_singleton'];
 

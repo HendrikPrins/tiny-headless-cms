@@ -1,4 +1,5 @@
 <?php
+$title = 'Content Types';
 $types = Database::getInstance()->getContentTypes();
 
 $collections = [];

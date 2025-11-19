@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
-    <title><?php echo htmlspecialchars($title ?? 'Tiny Headless CMS'); ?></title>
+    <title><?php echo htmlspecialchars(!empty($title) ? ($title . ' - Tiny Headless CMS') : 'Tiny Headless CMS'); ?></title>
     <link rel="stylesheet" href="/assets/style.css">
     <script defer src="/assets/app.js"></script>
 </head>

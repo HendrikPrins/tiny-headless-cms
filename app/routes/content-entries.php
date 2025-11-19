@@ -4,6 +4,7 @@ $ctId = isset($_GET['ct']) ? (int)$_GET['ct'] : 0;
 if ($ctId <= 0) { echo '<h1>Content type not found</h1>'; return; }
 $ct = $db->getContentType($ctId);
 if (!$ct) { echo '<h1>Content type not found</h1>'; return; }
+$title = 'Entries for: ' . htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8');
 $isSingleton = $ct['is_singleton'];
 
 // Handle delete
@@ -151,4 +152,3 @@ foreach ($entries as $e) {
         </div>
     <?php endif; ?>
 <?php endif; ?>
-

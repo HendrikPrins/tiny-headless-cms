@@ -1,4 +1,5 @@
 <?php
+$title = 'Setup Required';
 $useFullTemplate = true;
 ?>
 <div class="card">

@@ -1,4 +1,5 @@
 <?php
+$title = 'Register Admin';
 $useFullTemplate = true;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

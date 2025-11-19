@@ -1,4 +1,5 @@
 <?php
+$title = 'Sign In';
 $useFullTemplate = true;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
