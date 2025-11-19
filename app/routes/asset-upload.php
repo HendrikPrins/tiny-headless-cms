@@ -47,7 +47,7 @@ if ($action === 'upload_chunk') {
         exit;
     }
 
-    $tempDir = $uploadDir . '/temp';
+    $tempDir = $uploadDir . '/' . CMS_ASSETS_TMP_DIR;
     if (!is_dir($tempDir)) {
         mkdir($tempDir, 0755, true);
     }

@@ -590,17 +590,6 @@ class Database {
     }
 
     /**
-     * Update asset directory
-     */
-    public function updateAssetDirectory(int $id, string $directory): bool
-    {
-        $stmt = $this->connection->prepare("UPDATE assets SET directory = :directory WHERE id = :id");
-        $stmt->bindParam(':directory', $directory);
-        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        return $stmt->execute();
-    }
-
-    /**
      * Update asset path and directory
      */
     public function updateAssetPath(int $id, string $path, string $directory): bool
@@ -610,6 +599,65 @@ class Database {
         $stmt->bindParam(':directory', $directory);
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         return $stmt->execute();
+    }
+
+    /**
+     * Rename a directory (recursively updates all assets whose directory is the target or inside it)
+     * @param string $oldDir
+     * @param string $newDir
+     */
+    public function renameAssetDirectory(string $oldDir, string $newDir): void
+    {
+        $oldDir = trim($oldDir, '/');
+        $newDir = trim($newDir, '/');
+        if ($oldDir === '' || $newDir === '' || $oldDir === $newDir) {
+            return; // nothing to do
+        }
+        $this->connection->beginTransaction();
+        try {
+            $stmt = $this->connection->prepare("SELECT id, path, directory FROM assets WHERE directory = :dir OR directory LIKE :dirlike");
+            $stmt->execute([
+                ':dir' => $oldDir,
+                ':dirlike' => $oldDir . '/%'
+            ]);
+            $rows = $stmt->fetchAll();
+            if ($rows) {
+                $update = $this->connection->prepare("UPDATE assets SET path = :path, directory = :directory WHERE id = :id");
+                $prefixOld = $oldDir . '/';
+                $prefixNew = $newDir . '/';
+                foreach ($rows as $r) {
+                    $id = (int)$r['id'];
+                    $dir = $r['directory'];
+                    $path = $r['path'];
+                    // compute new directory
+                    if ($dir === $oldDir) {
+                        $newDirectory = $newDir;
+                    } elseif (strpos($dir, $prefixOld) === 0) {
+                        $newDirectory = $prefixNew . substr($dir, strlen($prefixOld));
+                    } else {
+                        $newDirectory = $dir; // fallback (should not happen)
+                    }
+                    // compute new path
+                    if (strpos($path, $prefixOld) === 0) {
+                        $newPath = $prefixNew . substr($path, strlen($prefixOld));
+                    } elseif ($path === $oldDir) { // rare edge
+                        $newPath = $newDir;
+                    } else {
+                        // If path did not include oldDir (unexpected), keep as is
+                        $newPath = $path;
+                    }
+                    $update->execute([
+                        ':path' => $newPath,
+                        ':directory' => $newDirectory,
+                        ':id' => $id
+                    ]);
+                }
+            }
+            $this->connection->commit();
+        } catch (Exception $e) {
+            $this->connection->rollBack();
+            throw $e;
+        }
     }
 
     /**

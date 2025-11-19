@@ -56,7 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $parent = $_POST['parent'] ?? '';
             $parent = trim(str_replace(['..', '\\'], ['', '/'], $parent), '/');
             $dirname = $_POST['dirname'] ?? '';
-            if (preg_match('/^[a-zA-Z0-9_-]+$/', $dirname)) {
+            // Disallow temp dir name
+            if (strtolower($dirname) === strtolower(CMS_ASSETS_TMP_DIR)) {
+                echo '<div class="alert alert-danger">This directory name is reserved.</div>';
+            } elseif (preg_match('/^[a-zA-Z0-9_-]+$/', $dirname)) {
                 $fullPathRel = ($parent !== '' ? $parent . '/' : '') . $dirname;
                 $fullPathAbs = CMS_UPLOAD_DIR . '/' . $fullPathRel;
                 if (is_dir($fullPathAbs)) {
@@ -72,6 +75,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 echo '<div class="alert alert-danger">Invalid directory name.</div>';
             }
+        } elseif ($action === 'rename_directory') {
+            $current = $_POST['current_dir'] ?? '';
+            $current = trim(str_replace(['..','\\'],['','/'],$current),'/');
+            $newName = $_POST['new_dir_name'] ?? '';
+            // Disallow temp dir name
+            if (strtolower($newName) === strtolower(CMS_ASSETS_TMP_DIR)) {
+                echo '<div class="alert alert-danger">This directory name is reserved.</div>';
+            } elseif ($current !== '' && preg_match('/^[a-zA-Z0-9_-]+$/',$newName)) {
+                $parent = dirname($current);
+                if ($parent === '.' || $parent === '/') $parent='';
+                $newFull = ($parent !== '' ? $parent.'/' : '').$newName;
+                $oldAbs = CMS_UPLOAD_DIR . '/' . $current;
+                $newAbs = CMS_UPLOAD_DIR . '/' . $newFull;
+                if (!is_dir($oldAbs)) {
+                    echo '<div class="alert alert-danger">Original directory not found.</div>';
+                } elseif (is_dir($newAbs)) {
+                    echo '<div class="alert alert-warning">Target name already exists.</div>';
+                } else {
+                    if (@rename($oldAbs,$newAbs)) {
+                        try { $db->renameAssetDirectory($current,$newFull); } catch (Exception $e) { echo '<div class="alert alert-danger">DB update failed: '.htmlspecialchars($e->getMessage(),ENT_QUOTES).'</div>'; }
+                        header('Location: admin.php?page=assets&dir=' . urlencode($newFull), true, 303);
+                        exit;
+                    } else {
+                        echo '<div class="alert alert-danger">Failed to rename directory.</div>';
+                    }
+                }
+            } else {
+                echo '<div class="alert alert-danger">Invalid new directory name.</div>';
+            }
         }
     }
 }
@@ -79,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $currentDir = $_GET['dir'] ?? '';
 $currentDir = trim(str_replace(['..', '\\'], ['', '/'], $currentDir), '/');
 
-// Helper to list immediate subdirectories (even if empty)
+// Helper to list immediate subdirectories (even if empty), filtering out temp dir
 function listImmediateSubdirectories(string $rootUploadDir, string $relativeDir): array {
     $basePath = rtrim($rootUploadDir, '/');
     if ($relativeDir !== '') {
@@ -90,6 +122,7 @@ function listImmediateSubdirectories(string $rootUploadDir, string $relativeDir)
     $dirs = [];
     foreach ($items as $item) {
         if ($item === '.' || $item === '..') continue;
+        if (strtolower($item) === strtolower(CMS_ASSETS_TMP_DIR)) continue;
         $full = $basePath . '/' . $item;
         if (is_dir($full)) {
             // Build relative path
@@ -108,6 +141,9 @@ function collectAllDirectories(string $rootUploadDir, string $relativeDir = ''):
     $list = [];
     $immediate = listImmediateSubdirectories($rootUploadDir, $relativeDir);
     foreach ($immediate as $dir) {
+        // Filter out any path segment that is temp
+        $parts = explode('/', $dir);
+        if (in_array(strtolower(CMS_ASSETS_TMP_DIR), array_map('strtolower', $parts), true)) continue;
         $list[] = $dir;
         // Recurse
         $list = array_merge($list, collectAllDirectories($rootUploadDir, $dir));
@@ -123,8 +159,6 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
 
 // Fetch assets only for current directory
 $assets = $db->getAssets($currentDir === '' ? null : $currentDir);
-$directories = $db->getAssetDirectories();
-$chunkSize = 1024 * 1024; // Default 1MB
 ?>
 
 <div class="content-header">
@@ -146,8 +180,8 @@ $chunkSize = 1024 * 1024; // Default 1MB
 
 <div style="margin-bottom: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
     <button type="button" onclick="showCreateDirectoryDialog()" class="btn-primary">📁 New Directory</button>
-
     <?php if (!empty($currentDir)): ?>
+        <button type="button" onclick="showRenameDirectoryDialog()" class="btn-secondary">✏️ Rename Directory</button>
         <a href="?page=assets&dir=<?= urlencode(dirname($currentDir) === '.' ? '' : dirname($currentDir)) ?>" class="btn-secondary">⬆️ Up</a>
     <?php endif; ?>
 </div>
@@ -169,6 +203,25 @@ $chunkSize = 1024 * 1024; // Default 1MB
             </div>
         </form>
     </div>
+</dialog>
+
+<dialog id="rename-directory-dialog" style="border:none; border-radius:8px; padding:0; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+  <div style="padding:20px;">
+    <h2 style="margin-top:0;">Rename Directory</h2>
+    <form method="post" action="admin.php?page=assets&dir=<?= urlencode($currentDir) ?>" style="margin:0; display:flex; flex-direction:column; gap:12px;">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES) ?>">
+      <input type="hidden" name="action" value="rename_directory">
+      <input type="hidden" name="current_dir" value="<?= htmlspecialchars($currentDir, ENT_QUOTES) ?>">
+      <label style="display:flex; flex-direction:column; gap:4px;">
+        <span>New Name</span>
+        <input type="text" name="new_dir_name" required pattern="[a-zA-Z0-9_-]+" title="Letters, numbers, hyphens, underscores" style="padding:8px; border:1px solid #ccc; border-radius:4px;">
+      </label>
+      <div style="display:flex; gap:8px;">
+        <button type="submit" class="btn-primary">Rename</button>
+        <button type="button" onclick="document.getElementById('rename-directory-dialog').close()" class="btn-secondary">Cancel</button>
+      </div>
+    </form>
+  </div>
 </dialog>
 
 <dialog id="move-asset-dialog" style="border: none; border-radius: 8px; padding: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
@@ -305,7 +358,7 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
     const uploadProgress = document.getElementById('upload-progress');
     const progressList = document.getElementById('progress-list');
     const csrfToken = '<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>';
-    const CHUNK_SIZE = <?= $chunkSize ?>;
+    const CHUNK_SIZE = <?= CMS_MAX_UPLOAD_SIZE ?>;
     const currentDirectory = document.getElementById('current-directory').value;
 
     dropZone.addEventListener('click', () => fileInput.click());
@@ -431,6 +484,13 @@ function showCreateDirectoryDialog() {
     dialog.showModal();
 }
 
+function showRenameDirectoryDialog(){
+  const dlg = document.getElementById('rename-directory-dialog');
+  if(!dlg) return;
+  const input = dlg.querySelector('input[name="new_dir_name"]');
+  if(input) input.value='';
+  dlg.showModal();
+}
 
 function showMoveDialog(assetId, currentDir) {
     const dialog = document.getElementById('move-asset-dialog');

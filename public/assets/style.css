@@ -17,6 +17,9 @@
     --color-success: #28a745;
     --color-success-shade: #1e7e34;
     --color-success-contrast: #fff;
+    --color-warning: #ffc107;
+    --color-warning-shade: #e0a800;
+    --color-warning-contrast: #212529;
     --color-danger: #cc3333;
     --color-danger-shade: #992222;
     --color-danger-contrast: #fff;
@@ -211,6 +214,12 @@ button:hover, .btn:hover {
     --btn-color: var(--color-success-contrast);
 }
 
+.btn-warning {
+    --btn-bg: var(--color-warning);
+    --btn-bg-hover: var(--color-warning-shade);
+    --btn-color: var(--color-warning-contrast);
+}
+
 .btn-danger {
     --btn-bg: var(--color-danger);
     --btn-bg-hover: var(--color-danger-shade);
@@ -238,6 +247,11 @@ button:hover, .btn:hover {
 .alert-success {
     background-color: var(--color-success);
     color: var(--color-success-contrast);
+}
+
+.alert-warning {
+    background-color: var(--color-warning);
+    color: var(--color-warning-contrast);
 }
 
 .alert-danger {
