@@ -540,11 +540,12 @@ class Database {
     /**
      * Create asset record
      */
-    public function createAsset(string $filename, string $path, ?string $mimeType, ?int $size): int
+    public function createAsset(string $filename, string $path, ?string $mimeType, ?int $size, string $directory = ''): int
     {
-        $stmt = $this->connection->prepare("INSERT INTO assets (filename, path, mime_type, size) VALUES (:filename, :path, :mime, :size)");
+        $stmt = $this->connection->prepare("INSERT INTO assets (filename, path, directory, mime_type, size) VALUES (:filename, :path, :directory, :mime, :size)");
         $stmt->bindParam(':filename', $filename);
         $stmt->bindParam(':path', $path);
+        $stmt->bindParam(':directory', $directory);
         $stmt->bindParam(':mime', $mimeType);
         $stmt->bindParam(':size', $size, PDO::PARAM_INT);
         $stmt->execute();
@@ -554,10 +555,26 @@ class Database {
     /**
      * Get all assets
      */
-    public function getAssets(): array
+    public function getAssets(?string $directory = null): array
     {
-        $stmt = $this->connection->query("SELECT id, filename, path, mime_type, size, created_at FROM assets ORDER BY created_at DESC");
+        if ($directory !== null) {
+            $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE directory = :dir ORDER BY created_at DESC");
+            $stmt->bindParam(':dir', $directory);
+            $stmt->execute();
+            return $stmt->fetchAll();
+        }
+        $stmt = $this->connection->query("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets ORDER BY directory ASC, created_at DESC");
         return $stmt->fetchAll();
+    }
+
+    /**
+     * Get all unique directories
+     */
+    public function getAssetDirectories(): array
+    {
+        $stmt = $this->connection->query("SELECT DISTINCT directory FROM assets ORDER BY directory ASC");
+        $results = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        return $results;
     }
 
     /**
@@ -565,11 +582,34 @@ class Database {
      */
     public function getAssetById(int $id): ?array
     {
-        $stmt = $this->connection->prepare("SELECT id, filename, path, mime_type, size, created_at FROM assets WHERE id = :id");
+        $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
         return $result ?: null;
+    }
+
+    /**
+     * Update asset directory
+     */
+    public function updateAssetDirectory(int $id, string $directory): bool
+    {
+        $stmt = $this->connection->prepare("UPDATE assets SET directory = :directory WHERE id = :id");
+        $stmt->bindParam(':directory', $directory);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
+
+    /**
+     * Update asset path and directory
+     */
+    public function updateAssetPath(int $id, string $path, string $directory): bool
+    {
+        $stmt = $this->connection->prepare("UPDATE assets SET path = :path, directory = :directory WHERE id = :id");
+        $stmt->bindParam(':path', $path);
+        $stmt->bindParam(':directory', $directory);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        return $stmt->execute();
     }
 
     /**

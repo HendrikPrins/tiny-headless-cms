@@ -33,6 +33,7 @@ if ($action === 'upload_chunk') {
     $totalChunks = isset($_POST['total_chunks']) ? (int)$_POST['total_chunks'] : 1;
     $fileIdentifier = $_POST['file_identifier'] ?? '';
     $originalFilename = $_POST['original_filename'] ?? '';
+    $directory = $_POST['directory'] ?? '';
 
     if (empty($fileIdentifier) || empty($originalFilename)) {
         http_response_code(400);
@@ -64,8 +65,33 @@ if ($action === 'upload_chunk') {
         $ext = pathinfo($originalFilename, PATHINFO_EXTENSION);
         $baseName = pathinfo($originalFilename, PATHINFO_FILENAME);
         $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $baseName);
-        $finalFilename = $safeName . '_' . time() . ($ext ? '.' . $ext : '');
-        $finalPath = $uploadDir . '/' . $finalFilename;
+        if ($safeName === '') { $safeName = 'file'; }
+        $extSuffix = $ext ? '.' . $ext : '';
+        // Determine target directory first so we can test existing filenames there
+        $targetDir = $uploadDir;
+        if (!empty($directory)) {
+            $safeDir = trim(str_replace(['..', '\\'], ['', '/'], $directory), '/');
+            if (!empty($safeDir)) {
+                $targetDir = $uploadDir . '/' . $safeDir;
+                if (!is_dir($targetDir)) {
+                    mkdir($targetDir, 0755, true);
+                }
+            }
+        }
+        // Try original filename first
+        $candidate = $safeName . $extSuffix;
+        $finalFilename = $candidate;
+        if (file_exists($targetDir . '/' . $finalFilename)) {
+            $i = 2;
+            while (file_exists($targetDir . '/' . $safeName . '_' . $i . $extSuffix)) {
+                $i++;
+                // Simple guard to avoid infinite loop (very unlikely)
+                if ($i > 100000) { break; }
+            }
+            $finalFilename = $safeName . '_' . $i . $extSuffix;
+        }
+        $finalPath = $targetDir . '/' . $finalFilename;
+        $relativePath = !empty($directory) ? $directory . '/' . $finalFilename : $finalFilename;
 
         $output = fopen($finalPath, 'wb');
         if (!$output) {
@@ -78,7 +104,7 @@ if ($action === 'upload_chunk') {
             $chunkFile = $tempDir . '/' . $safeIdentifier . '_' . $i;
             if (!file_exists($chunkFile)) {
                 fclose($output);
-                unlink($finalPath);
+                @unlink($finalPath);
                 http_response_code(500);
                 echo json_encode(['error' => 'Missing chunk ' . $i]);
                 exit;
@@ -86,14 +112,15 @@ if ($action === 'upload_chunk') {
             $chunk = fopen($chunkFile, 'rb');
             stream_copy_to_stream($chunk, $output);
             fclose($chunk);
-            unlink($chunkFile);
+            @unlink($chunkFile);
         }
         fclose($output);
 
-        $fileSize = filesize($finalPath);
-        $mimeType = mime_content_type($finalPath);
+        $fileSize = @filesize($finalPath);
+        $mimeType = @mime_content_type($finalPath);
 
-        $assetId = $db->createAsset($originalFilename, $finalFilename, $mimeType, $fileSize);
+        // Store the final (unique) filename in the DB so listing matches actual file
+        $assetId = $db->createAsset($finalFilename, $relativePath, $mimeType, $fileSize, $directory);
 
         echo json_encode([
             'success' => true,
@@ -114,4 +141,3 @@ if ($action === 'upload_chunk') {
 http_response_code(400);
 echo json_encode(['error' => 'Invalid action']);
 exit;
-
