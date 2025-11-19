@@ -41,7 +41,14 @@ function loadConfig()
 
 loadConfig();
 
-define('CMS_LOCALES', ['en', 'nl']);
+if (!defined('CMS_DB_HOST')) define('CMS_DB_HOST', 'localhost');
+if (!defined('CMS_DB_PORT')) define('CMS_DB_PORT', '3306');
+if (!defined('CMS_DB_USER')) define('CMS_DB_USER', 'root');
+if (!defined('CMS_DB_PASS')) define('CMS_DB_PASS', '');
+if (!defined('CMS_DB_NAME')) define('CMS_DB_NAME', 'cms_database');
+if (!defined('CMS_UPLOAD_DIR')) define('CMS_UPLOAD_DIR', __DIR__ . '/../uploads');
+
+const CMS_LOCALES = ['en', 'nl'];
 
 require __DIR__ . '/database.php';
 require __DIR__ . '/icons.php';
