@@ -189,13 +189,13 @@ $assets = $db->getAssets($currentDir);
 <dialog id="create-directory-dialog" class="dialog">
     <div>
         <h2>Create New Directory</h2>
-        <form method="post" action="?page=assets<?= $currentDir !== '' ? '&dir=' . urlencode($currentDir) : '' ?>" style="margin:0;">
+        <form method="post" action="?page=assets<?= $currentDir !== '' ? '&dir=' . urlencode($currentDir) : '' ?>">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="create_directory">
             <input type="hidden" name="parent" value="<?= htmlspecialchars($currentDir, ENT_QUOTES, 'UTF-8') ?>">
             <label>
                 <span>Directory Name:</span>
-                <input type="text" name="dirname" required pattern="[a-zA-Z0-9_-]+" title="Only letters, numbers, hyphens and underscores allowed" style="width: 300px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <input type="text" name="dirname" required pattern="[a-zA-Z0-9_-]+" title="Only letters, numbers, hyphens and underscores allowed">
             </label>
             <div class="dialog-footer">
                 <button type="submit" class="btn-primary">Create</button>
@@ -208,13 +208,13 @@ $assets = $db->getAssets($currentDir);
 <dialog id="rename-directory-dialog" class="dialog">
   <div>
     <h2>Rename Directory</h2>
-    <form method="post" action="?page=assets&dir=<?= urlencode($currentDir) ?>" style="margin:0; display:flex; flex-direction:column; gap:12px;">
+    <form method="post" action="?page=assets&dir=<?= urlencode($currentDir) ?>">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES) ?>">
       <input type="hidden" name="action" value="rename_directory">
       <input type="hidden" name="current_dir" value="<?= htmlspecialchars($currentDir, ENT_QUOTES) ?>">
       <label>
         <span>New Name</span>
-        <input type="text" name="new_dir_name" required pattern="[a-zA-Z0-9_-]+" title="Letters, numbers, hyphens, underscores" style="padding:8px; border:1px solid #ccc; border-radius:4px;">
+        <input type="text" name="new_dir_name" required pattern="[a-zA-Z0-9_-]+" title="Letters, numbers, hyphens, underscores">
       </label>
       <div class="dialog-footer">
         <button type="submit" class="btn-primary">Rename</button>
@@ -224,23 +224,23 @@ $assets = $db->getAssets($currentDir);
   </div>
 </dialog>
 
-<dialog id="move-asset-dialog" style="border: none; border-radius: 8px; padding: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-    <div style="padding: 20px;">
-        <h2 style="margin-top: 0;">Move Asset</h2>
+<dialog id="move-asset-dialog" class="dialog">
+    <div>
+        <h2>Move Asset</h2>
         <form method="post" id="move-asset-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES) ?>">
             <input type="hidden" name="action" value="move">
             <input type="hidden" name="asset_id" id="move-asset-id">
-            <label style="display: block; margin-bottom: 8px;">
-                <span style="display: block; margin-bottom: 4px;">Move to directory:</span>
-                <select name="new_directory" id="move-directory-select" style="width: 300px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            <label>
+                <span>Move to directory:</span>
+                <select name="new_directory" id="move-directory-select">
                     <option value="">Root</option>
                     <?php foreach ($allDirectories as $dir): if ($dir === '') continue; ?>
                         <option value="<?= htmlspecialchars($dir, ENT_QUOTES) ?>"><?= htmlspecialchars($dir, ENT_QUOTES) ?></option>
                     <?php endforeach; ?>
                 </select>
             </label>
-            <div style="display: flex; gap: 8px; margin-top: 16px;">
+            <div class="dialog-footer">
                 <button type="submit" class="btn-primary">Move</button>
                 <button type="button" onclick="document.getElementById('move-asset-dialog').close()" class="btn-secondary">Cancel</button>
             </div>
@@ -260,17 +260,14 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
 
 <?php if (!empty($subDirs)): ?>
 <h2>Directories</h2>
-<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; margin-bottom: 32px;">
+<div class="directory-grid">
     <?php foreach ($subDirs as $subDir):
         $dirName = empty($currentDir) ? $subDir : substr($subDir, strlen($currentDir) + 1);
         $fullPath = $subDir;
     ?>
-        <a href="?page=assets&dir=<?= urlencode($fullPath) ?>"
-           style="display: flex; flex-direction: column; align-items: center; padding: 16px; border: 1px solid #ddd; border-radius: 8px; text-decoration: none; color: inherit; background: #f9f9f9; transition: background 0.2s;"
-           onmouseover="this.style.background='#f0f0f0'"
-           onmouseout="this.style.background='#f9f9f9'">
-            <span style="font-size: 3em;"><?=ICON_FOLDER?></span>
-            <span style="margin-top: 8px; text-align: center; word-break: break-word;"><?= htmlspecialchars($dirName, ENT_QUOTES, 'UTF-8') ?></span>
+        <a href="?page=assets&dir=<?= urlencode($fullPath) ?>" class="directory-tile">
+            <span class="directory-icon"><?=ICON_FOLDER?></span>
+            <span class="directory-name"><?= htmlspecialchars($dirName, ENT_QUOTES, 'UTF-8') ?></span>
         </a>
     <?php endforeach; ?>
 </div>
@@ -278,17 +275,17 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
 
 <h2>Files</h2>
 
-<div id="upload-section" style="margin-bottom: 32px; padding: 24px; background: #f5f5f5; border-radius: 8px;">
-    <h3 style="margin-top: 0;">Upload Files<?= !empty($currentDir) ? ' to ' . htmlspecialchars($currentDir, ENT_QUOTES, 'UTF-8') : '' ?></h3>
-    <div id="drop-zone" style="border: 2px dashed #ccc; padding: 40px; text-align: center; border-radius: 8px; background: white; cursor: pointer; transition: all 0.3s;">
-        <p style="margin: 0; font-size: 1.1em;">Drag and drop files here or click to select</p>
-        <p style="margin: 8px 0 0 0; font-size: 0.9em; color: #666;">Supports images, PDFs, ZIP files, and more</p>
+<div id="upload-section" class="upload-section">
+    <h3 class="section-title">Upload Files<?= !empty($currentDir) ? ' to ' . htmlspecialchars($currentDir, ENT_QUOTES, 'UTF-8') : '' ?></h3>
+    <div id="drop-zone" class="drop-zone" tabindex="0">
+        <p class="drop-zone-line1">Drag and drop files here or click to select</p>
+        <p class="drop-zone-line2">Supports images, PDFs, ZIP files, and more</p>
     </div>
-    <input type="file" id="file-input" multiple style="display: none;">
+    <input type="file" id="file-input" multiple class="hidden-input">
     <input type="hidden" id="current-directory" value="<?= htmlspecialchars($currentDir, ENT_QUOTES, 'UTF-8') ?>">
 
-    <div id="upload-progress" style="margin-top: 20px; display: none;">
-        <h3 style="margin-bottom: 12px;">Uploading...</h3>
+    <div id="upload-progress" class="upload-progress hidden">
+        <h3 class="section-subtitle">Uploading...</h3>
         <div id="progress-list"></div>
     </div>
 </div>
@@ -315,9 +312,9 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
                             <?php if (strpos($asset['mime_type'], 'image/') === 0): ?>
                                 <img src="/uploads/<?= htmlspecialchars($asset['path'], ENT_QUOTES, 'UTF-8') ?>"
                                      alt="<?= htmlspecialchars($asset['filename'], ENT_QUOTES, 'UTF-8') ?>"
-                                     style="max-width: 60px; max-height: 60px; display: block;">
+                                     class="asset-thumb">
                             <?php else: ?>
-                                <span style="font-size: 2em;">📄</span>
+                                <span class="file-icon">📄</span>
                             <?php endif; ?>
                         </td>
                         <td><?= htmlspecialchars($asset['filename'], ENT_QUOTES, 'UTF-8') ?></td>
@@ -337,7 +334,7 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
                                     class="btn btn-icon btn-light"
                                     onclick="showMoveDialog(<?= (int)$asset['id'] ?>, '<?= htmlspecialchars($asset['directory'], ENT_QUOTES, 'UTF-8') ?>')"
                                     title="Move"><?=ICON_FILE_ARROW_RIGHT?></button>
-                            <form method="post" style="display: inline;" onsubmit="return confirm('Delete this asset?');">
+                            <form method="post" class="d-inline" onsubmit="return confirm('Delete this asset?');">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="asset_id" value="<?= (int)$asset['id'] ?>">
@@ -365,20 +362,17 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
 
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        dropZone.style.borderColor = '#007bff';
-        dropZone.style.backgroundColor = '#f0f8ff';
+        dropZone.classList.add('drop-zone--dragover');
     });
 
     dropZone.addEventListener('dragleave', (e) => {
         e.preventDefault();
-        dropZone.style.borderColor = '#ccc';
-        dropZone.style.backgroundColor = 'white';
+        dropZone.classList.remove('drop-zone--dragover');
     });
 
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
-        dropZone.style.borderColor = '#ccc';
-        dropZone.style.backgroundColor = 'white';
+        dropZone.classList.remove('drop-zone--dragover');
         const files = Array.from(e.dataTransfer.files);
         if (files.length > 0) {
             handleFiles(files);
@@ -394,7 +388,7 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
     });
 
     async function handleFiles(files) {
-        uploadProgress.style.display = 'block';
+        uploadProgress.classList.remove('hidden');
         progressList.innerHTML = '';
 
         for (const file of files) {
@@ -411,14 +405,14 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
         const progressItem = document.createElement('div');
-        progressItem.style.cssText = 'margin-bottom: 12px; padding: 12px; background: white; border-radius: 4px;';
+        progressItem.className = 'progress-item';
         progressItem.innerHTML = `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <strong>${escapeHtml(file.name)}</strong>
-                <span id="progress-${fileId}">0%</span>
+            <div class="progress-summary">
+                <strong class="progress-name">${escapeHtml(file.name)}</strong>
+                <span id="progress-${fileId}" class="progress-percent">0%</span>
             </div>
-            <div style="height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden;">
-                <div id="bar-${fileId}" style="height: 100%; background: #007bff; width: 0%; transition: width 0.3s;"></div>
+            <div class="progress-bar-container">
+                <div id="bar-${fileId}" class="progress-bar"></div>
             </div>
         `;
         progressList.appendChild(progressItem);
@@ -461,10 +455,10 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
                 progressBar.style.width = progress + '%';
             }
 
-            progressBar.style.background = '#28a745';
+            progressBar.classList.add('progress-success');
             progressText.textContent = '✓ Complete';
         } catch (error) {
-            progressBar.style.background = '#dc3545';
+            progressBar.classList.add('progress-failed');
             progressText.textContent = '✗ Failed: ' + error.message;
             console.error('Upload error:', error);
         }

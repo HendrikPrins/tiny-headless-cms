@@ -3,6 +3,7 @@
     --bg-content: #1e1e1e;
     --bg-header: #060606;
     --bg-card: #2c2c2c;
+    --bg-card-hover: #242424;
     --bg-row-even: #2c2c2c;
     --bg-thead: #333;
     --bg-input: #1e1e1e;
@@ -364,4 +365,152 @@ nav.breadcrumb ol li + li::before {
     flex-wrap: wrap;
     gap: 1rem;
     align-items: center;
+}
+
+.d-inline {
+    display: inline;
+}
+
+.directory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.directory-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    background: var(--bg-card);
+    transition: background 0.2s;
+}
+
+.directory-tile:hover {
+    background: var(--bg-card-hover);
+}
+
+.directory-icon {
+    font-size: 3em;
+}
+
+.directory-name {
+    margin-top: 8px;
+    text-align: center;
+    word-break: break-word;
+}
+
+.upload-section {
+    margin-bottom: 32px;
+    padding: 24px;
+    background: var(--bg-input);
+    border-radius: 8px;
+}
+
+.section-title {
+    margin-top: 0;
+}
+
+.section-subtitle {
+    margin-bottom: 12px;
+}
+
+.drop-zone {
+    border: 2px dashed var(--border-color);
+    padding: 40px;
+    text-align: center;
+    border-radius: 8px;
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.drop-zone:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15);
+}
+
+.drop-zone-line1 {
+    margin: 0;
+}
+
+.drop-zone-line2 {
+    margin-top: 8px;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+}
+
+.drop-zone--dragover {
+    border-color: var(--color-primary);
+    background: rgba(0, 102, 204, 0.03);
+}
+
+.hidden-input {
+    display: none;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.upload-progress {
+    margin-top: 20px;
+}
+
+.progress-item {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: var(--bg-card);
+    border-radius: 4px;
+}
+
+.progress-summary {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.progress-name {
+    font-weight: 600;
+}
+
+.progress-percent {
+    color: var(--text-secondary);
+}
+
+.progress-bar-container {
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--color-primary);
+    width: 0;
+    transition: width 0.3s ease;
+}
+
+.progress-bar.progress-success {
+    background: var(--color-success);
+}
+
+.progress-bar.progress-failed {
+    background: var(--color-danger);
+}
+
+.asset-thumb {
+    max-width: 60px;
+    max-height: 60px;
+    display: block;
+}
+
+.file-icon {
+    font-size: 2em;
 }
