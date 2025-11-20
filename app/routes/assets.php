@@ -179,10 +179,10 @@ $assets = $db->getAssets($currentDir);
 </div>
 
 <div class="buttons">
+    <button type="button" onclick="showFilePicker()" class="btn-primary"><?=ICON_FILE_UPLOAD?> Upload Files</button>
     <button type="button" onclick="showCreateDirectoryDialog()" class="btn-primary"><?=ICON_FOLDER_PLUS?> New Directory</button>
     <?php if (!empty($currentDir)): ?>
         <button type="button" onclick="showRenameDirectoryDialog()" class="btn-secondary"><?=ICON_PENCIL?> Rename Directory</button>
-        <a href="?page=assets&dir=<?= urlencode(dirname($currentDir) === '.' ? '' : dirname($currentDir)) ?>" class="btn-secondary">⬆️ Up</a>
     <?php endif; ?>
 </div>
 
@@ -266,7 +266,7 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
         $fullPath = $subDir;
     ?>
         <a href="?page=assets&dir=<?= urlencode($fullPath) ?>" class="directory-tile">
-            <span class="directory-icon"><?=ICON_FOLDER?></span>
+            <?=ICON_FOLDER?>
             <span class="directory-name"><?= htmlspecialchars($dirName, ENT_QUOTES, 'UTF-8') ?></span>
         </a>
     <?php endforeach; ?>
@@ -470,6 +470,10 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
         return div.innerHTML;
     }
 })();
+
+function showFilePicker() {
+    document.getElementById('file-input').click();
+}
 
 function showCreateDirectoryDialog() {
     const dialog = document.getElementById('create-directory-dialog');
