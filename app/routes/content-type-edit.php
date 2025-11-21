@@ -1,6 +1,7 @@
 <?php
 $errors = [];
 $messages = [];
+$fieldTypes = FieldRegistry::getTypeNames();
 
 // Load flash messages (PRG) if present
 if (!empty($_SESSION['flash_messages']) && is_array($_SESSION['flash_messages'])) {
@@ -30,7 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'delete_content_type') {
             try {
                 $db->deleteContentType($id);
-                while (ob_get_level() > 0) { ob_end_clean(); }
+                while (ob_get_level() > 0) {
+                    ob_end_clean();
+                }
                 header('Location: admin.php?page=content-type', true, 303);
                 exit;
             } catch (PDOException $e) {
@@ -41,7 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 Database::getInstance()->updateContentTypeName($id, $newName);
                 $_SESSION['flash_messages'] = ['Name updated.'];
-                while (ob_get_level() > 0) { ob_end_clean(); }
+                while (ob_get_level() > 0) {
+                    ob_end_clean();
+                }
                 header('Location: admin.php?page=content-type-edit&id=' . $id, true, 303);
                 exit;
             } catch (InvalidArgumentException $e) {
@@ -56,7 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Invalid payload.';
             } else {
                 try {
-                    $allowed = ['string', 'text', 'integer', 'decimal', 'boolean'];
                     $oldFields = [];
                     foreach ($db->getFieldsForContentType($id) as $f) {
                         $oldFields[$f['id']] = [
@@ -86,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if ($name === '') {
                                 throw new InvalidArgumentException('Field name is required for updates');
                             }
-                            if (!in_array($type, $allowed, true)) {
+                            if (!in_array($type, $fieldTypes, true)) {
                                 throw new InvalidArgumentException('Invalid field type for updates');
                             }
                             $db->updateField($fid, $name, $type, $is_required, $is_translatable, $order);
@@ -106,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if ($name === '') {
                                 continue;
                             }
-                            if (!in_array($type, $allowed, true)) {
+                            if (!in_array($type, $fieldTypes, true)) {
                                 throw new InvalidArgumentException('Invalid field type for create');
                             }
                             $db->createField($id, $name, $type, $is_required, $is_translatable, $order);
@@ -114,7 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     $_SESSION['flash_messages'] = ['Fields saved.'];
-                    while (ob_get_level() > 0) { ob_end_clean(); }
+                    while (ob_get_level() > 0) {
+                        ob_end_clean();
+                    }
                     header('Location: admin.php?page=content-type-edit&id=' . $id, true, 303);
                     exit;
                 } catch (InvalidArgumentException $e) {
@@ -130,14 +136,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $fields = $db->getFieldsForContentType($id);
 // Prepare fields for JS - ensure booleans
-$jsFields = array_map(function($f){
+$jsFields = array_map(function ($f) {
     return [
-        'id' => (int)$f['id'],
-        'name' => $f['name'],
-        'field_type' => $f['field_type'],
-        'is_required' => (bool)$f['is_required'],
-        'is_translatable' => (bool)$f['is_translatable'],
-        'order' => (int)$f['order']
+            'id' => (int)$f['id'],
+            'name' => $f['name'],
+            'field_type' => $f['field_type'],
+            'is_required' => (bool)$f['is_required'],
+            'is_translatable' => (bool)$f['is_translatable'],
+            'order' => (int)$f['order']
     ];
 }, $fields);
 
@@ -187,11 +193,9 @@ $jsFields = array_map(function($f){
             </td>
             <td>
                 <select data-column="field_type">
-                    <option value="string">String</option>
-                    <option value="text">Text</option>
-                    <option value="integer">Integer</option>
-                    <option value="decimal">Decimal</option>
-                    <option value="boolean">Boolean</option>
+                    <?php foreach ($fieldTypes as $fieldType): ?>
+                        <option value="<?= $fieldType ?>"><?= $fieldType ?></option>
+                    <?php endforeach; ?>
                 </select>
             </td>
             <td style="text-align:center;">
@@ -201,9 +205,9 @@ $jsFields = array_map(function($f){
                 <input type="checkbox" data-column="is_translatable">
             </td>
             <td style="white-space:nowrap;">
-                <button type="button" data-column="btn_up" class="btn-primary btn-icon" title="Move up"><?=ICON_CHEVRON_UP?></button>
-                <button type="button" data-column="btn_down" class="btn-primary btn-icon" title="Move down"><?=ICON_CHEVRON_DOWN?></button>
-                <button type="button" data-column="btn_delete" class="btn-danger btn-icon" title="Delete"><?=ICON_TRASH?></button>
+                <button type="button" data-column="btn_up" class="btn-primary btn-icon" title="Move up"><?= ICON_CHEVRON_UP ?></button>
+                <button type="button" data-column="btn_down" class="btn-primary btn-icon" title="Move down"><?= ICON_CHEVRON_DOWN ?></button>
+                <button type="button" data-column="btn_delete" class="btn-danger btn-icon" title="Delete"><?= ICON_TRASH ?></button>
             </td>
         </tr>
     </template>
@@ -248,234 +252,234 @@ $jsFields = array_map(function($f){
 </form>
 
 <script>
-(function(){
-    const initialFields = <?= json_encode($jsFields, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT) ?>;
-    const deletedFields = new Set();
+    (function () {
+        const initialFields = <?= json_encode($jsFields, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const deletedFields = new Set();
 
-    function getCurrentState() {
-        const tableBody = document.querySelector('#fieldTable tbody');
-        const rows = Array.from(tableBody.querySelectorAll('tr'));
-        return rows.map((row, idx) => {
-            const id = row.getAttribute('data-field-id');
-            return {
-                id: id && id !== 'null' ? parseInt(id) : 0,
-                name: row.querySelector('[data-column="field_name"]').value.trim(),
-                field_type: row.querySelector('[data-column="field_type"]').value,
-                is_required: row.querySelector('[data-column="is_required"]').checked,
-                is_translatable: row.querySelector('[data-column="is_translatable"]').checked,
-                order: idx
-            };
-        });
-    }
+        function getCurrentState() {
+            const tableBody = document.querySelector('#fieldTable tbody');
+            const rows = Array.from(tableBody.querySelectorAll('tr'));
+            return rows.map((row, idx) => {
+                const id = row.getAttribute('data-field-id');
+                return {
+                    id: id && id !== 'null' ? parseInt(id) : 0,
+                    name: row.querySelector('[data-column="field_name"]').value.trim(),
+                    field_type: row.querySelector('[data-column="field_type"]').value,
+                    is_required: row.querySelector('[data-column="is_required"]').checked,
+                    is_translatable: row.querySelector('[data-column="is_translatable"]').checked,
+                    order: idx
+                };
+            });
+        }
 
-    function findOriginal(id) {
-        return initialFields.find(f => f.id === id);
-    }
+        function findOriginal(id) {
+            return initialFields.find(f => f.id === id);
+        }
 
-    function detectChanges() {
-        const current = getCurrentState();
-        const changes = [];
+        function detectChanges() {
+            const current = getCurrentState();
+            const changes = [];
 
-        // Check for deleted fields
-        deletedFields.forEach(id => {
-            const orig = findOriginal(id);
-            if (orig) {
-                changes.push({
-                    type: 'deleted',
-                    id: id,
-                    name: orig.name
-                });
-            }
-        });
-
-        // Check current fields for changes
-        current.forEach((field, idx) => {
-            if (field.id > 0) {
-                const orig = findOriginal(field.id);
-                if (!orig) return;
-
-                const fieldChanges = [];
-                if (field.name !== orig.name) {
-                    fieldChanges.push(`name: "${orig.name}" → "${field.name}"`);
-                }
-                if (field.field_type !== orig.field_type) {
-                    fieldChanges.push(`type: ${orig.field_type} → ${field.field_type}`);
-                }
-                if (field.is_required !== orig.is_required) {
-                    fieldChanges.push(`required: ${orig.is_required ? 'yes' : 'no'} → ${field.is_required ? 'yes' : 'no'}`);
-                }
-                if (field.is_translatable !== orig.is_translatable) {
-                    fieldChanges.push(`translatable: ${orig.is_translatable ? 'yes' : 'no'} → ${field.is_translatable ? 'yes' : 'no'}`);
-                }
-
-                if (fieldChanges.length > 0) {
+            // Check for deleted fields
+            deletedFields.forEach(id => {
+                const orig = findOriginal(id);
+                if (orig) {
                     changes.push({
-                        type: 'modified',
-                        id: field.id,
-                        name: field.name,
-                        changes: fieldChanges
+                        type: 'deleted',
+                        id: id,
+                        name: orig.name
                     });
                 }
-            } else if (field.name) {
-                // New field
-                changes.push({
-                    type: 'new',
-                    name: field.name,
-                    field_type: field.field_type
+            });
+
+            // Check current fields for changes
+            current.forEach((field, idx) => {
+                if (field.id > 0) {
+                    const orig = findOriginal(field.id);
+                    if (!orig) return;
+
+                    const fieldChanges = [];
+                    if (field.name !== orig.name) {
+                        fieldChanges.push(`name: "${orig.name}" → "${field.name}"`);
+                    }
+                    if (field.field_type !== orig.field_type) {
+                        fieldChanges.push(`type: ${orig.field_type} → ${field.field_type}`);
+                    }
+                    if (field.is_required !== orig.is_required) {
+                        fieldChanges.push(`required: ${orig.is_required ? 'yes' : 'no'} → ${field.is_required ? 'yes' : 'no'}`);
+                    }
+                    if (field.is_translatable !== orig.is_translatable) {
+                        fieldChanges.push(`translatable: ${orig.is_translatable ? 'yes' : 'no'} → ${field.is_translatable ? 'yes' : 'no'}`);
+                    }
+
+                    if (fieldChanges.length > 0) {
+                        changes.push({
+                            type: 'modified',
+                            id: field.id,
+                            name: field.name,
+                            changes: fieldChanges
+                        });
+                    }
+                } else if (field.name) {
+                    // New field
+                    changes.push({
+                        type: 'new',
+                        name: field.name,
+                        field_type: field.field_type
+                    });
+                }
+            });
+
+            return changes;
+        }
+
+        function updateSummary() {
+            const changes = detectChanges();
+            const summaryDiv = document.getElementById('changes-summary');
+            const changesList = document.getElementById('changes-list');
+
+            if (changes.length === 0) {
+                summaryDiv.style.display = 'none';
+                return;
+            }
+
+            summaryDiv.style.display = 'block';
+            changesList.innerHTML = '';
+
+            changes.forEach(change => {
+                const item = document.createElement('div');
+                item.style.cssText = 'margin-bottom:8px; padding:8px; border-radius:4px; border-left:4px solid #007bff;';
+
+                if (change.type === 'new') {
+                    item.innerHTML = `<strong>➕ New field:</strong> ${escapeHtml(change.name)} (${change.field_type})`;
+                    item.style.borderLeftColor = '#28a745';
+                } else if (change.type === 'deleted') {
+                    item.innerHTML = `<strong>🗑️ Deleted:</strong> ${escapeHtml(change.name)} <button type="button" class="btn-secondary" style="margin-left:8px; padding:2px 8px; font-size:0.85em;" data-undelete="${change.id}">Undo Delete</button>`;
+                    item.style.borderLeftColor = '#dc3545';
+                } else if (change.type === 'modified') {
+                    item.innerHTML = `<strong>✏️ Modified:</strong> ${escapeHtml(change.name)}<ul style="margin:4px 0 0 20px; padding:0;">${change.changes.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`;
+                    item.style.borderLeftColor = '#ffc107';
+                }
+
+                changesList.appendChild(item);
+            });
+
+            // Add undelete handlers
+            changesList.querySelectorAll('[data-undelete]').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const id = parseInt(this.getAttribute('data-undelete'));
+                    undeleteField(id);
                 });
-            }
-        });
-
-        return changes;
-    }
-
-    function updateSummary() {
-        const changes = detectChanges();
-        const summaryDiv = document.getElementById('changes-summary');
-        const changesList = document.getElementById('changes-list');
-
-        if (changes.length === 0) {
-            summaryDiv.style.display = 'none';
-            return;
-        }
-
-        summaryDiv.style.display = 'block';
-        changesList.innerHTML = '';
-
-        changes.forEach(change => {
-            const item = document.createElement('div');
-            item.style.cssText = 'margin-bottom:8px; padding:8px; border-radius:4px; border-left:4px solid #007bff;';
-
-            if (change.type === 'new') {
-                item.innerHTML = `<strong>➕ New field:</strong> ${escapeHtml(change.name)} (${change.field_type})`;
-                item.style.borderLeftColor = '#28a745';
-            } else if (change.type === 'deleted') {
-                item.innerHTML = `<strong>🗑️ Deleted:</strong> ${escapeHtml(change.name)} <button type="button" class="btn-secondary" style="margin-left:8px; padding:2px 8px; font-size:0.85em;" data-undelete="${change.id}">Undo Delete</button>`;
-                item.style.borderLeftColor = '#dc3545';
-            } else if (change.type === 'modified') {
-                item.innerHTML = `<strong>✏️ Modified:</strong> ${escapeHtml(change.name)}<ul style="margin:4px 0 0 20px; padding:0;">${change.changes.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`;
-                item.style.borderLeftColor = '#ffc107';
-            }
-
-            changesList.appendChild(item);
-        });
-
-        // Add undelete handlers
-        changesList.querySelectorAll('[data-undelete]').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = parseInt(this.getAttribute('data-undelete'));
-                undeleteField(id);
             });
-        });
-    }
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    function addField(field) {
-        if (!field) {
-            field = {};
         }
-        const tableBody = document.querySelector('#fieldTable tbody');
-        const template = document.getElementById('rowTemplate');
-        const row = template.content.cloneNode(true).querySelector('tr');
 
-        row.setAttribute("data-field-id", field.id || null);
-        const nameInput = row.querySelector('[data-column="field_name"]');
-        const typeSelect = row.querySelector('[data-column="field_type"]');
-        const reqCheck = row.querySelector('[data-column="is_required"]');
-        const transCheck = row.querySelector('[data-column="is_translatable"]');
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
-        nameInput.value = field.name || '';
-        typeSelect.value = field.field_type || 'string';
-        reqCheck.checked = field.is_required || false;
-        transCheck.checked = field.is_translatable || false;
+        function addField(field) {
+            if (!field) {
+                field = {};
+            }
+            const tableBody = document.querySelector('#fieldTable tbody');
+            const template = document.getElementById('rowTemplate');
+            const row = template.content.cloneNode(true).querySelector('tr');
 
-        [nameInput, typeSelect, reqCheck, transCheck].forEach(el => {
-            el.addEventListener('change', updateSummary);
-            el.addEventListener('input', updateSummary);
-        });
+            row.setAttribute("data-field-id", field.id || null);
+            const nameInput = row.querySelector('[data-column="field_name"]');
+            const typeSelect = row.querySelector('[data-column="field_type"]');
+            const reqCheck = row.querySelector('[data-column="is_required"]');
+            const transCheck = row.querySelector('[data-column="is_translatable"]');
 
-        row.querySelector('[data-column="btn_up"]').addEventListener('click', function(){
-            const prev = row.previousElementSibling;
-            if (prev) {
-                row.parentNode.insertBefore(row, prev);
+            nameInput.value = field.name || '';
+            typeSelect.value = field.field_type || 'string';
+            reqCheck.checked = field.is_required || false;
+            transCheck.checked = field.is_translatable || false;
+
+            [nameInput, typeSelect, reqCheck, transCheck].forEach(el => {
+                el.addEventListener('change', updateSummary);
+                el.addEventListener('input', updateSummary);
+            });
+
+            row.querySelector('[data-column="btn_up"]').addEventListener('click', function () {
+                const prev = row.previousElementSibling;
+                if (prev) {
+                    row.parentNode.insertBefore(row, prev);
+                    updateSummary();
+                }
+            });
+
+            row.querySelector('[data-column="btn_down"]').addEventListener('click', function () {
+                const next = row.nextElementSibling;
+                if (next) {
+                    row.parentNode.insertBefore(next, row);
+                    updateSummary();
+                }
+            });
+
+            row.querySelector('[data-column="btn_delete"]').addEventListener('click', function () {
+                const id = row.getAttribute('data-field-id');
+                if (id && id !== 'null') {
+                    deletedFields.add(parseInt(id));
+                }
+                row.remove();
                 updateSummary();
-            }
-        });
+            });
 
-        row.querySelector('[data-column="btn_down"]').addEventListener('click', function(){
-            const next = row.nextElementSibling;
-            if (next) {
-                row.parentNode.insertBefore(next, row);
+            tableBody.appendChild(row);
+        }
+
+        function undeleteField(id) {
+            deletedFields.delete(id);
+            const orig = findOriginal(id);
+            if (orig) {
+                addField(orig);
+            }
+            updateSummary();
+        }
+
+        function saveAll() {
+            const current = getCurrentState();
+            const payload = [];
+
+            // Add deleted fields to payload
+            deletedFields.forEach(id => {
+                payload.push({
+                    id: id,
+                    deleted: 1
+                });
+            });
+
+            // Add current fields
+            current.forEach((field, idx) => {
+                payload.push({
+                    id: field.id || 0,
+                    name: field.name,
+                    field_type: field.field_type,
+                    is_required: field.is_required ? 1 : 0,
+                    is_translatable: field.is_translatable ? 1 : 0,
+                    order: idx,
+                    deleted: 0
+                });
+            });
+
+            document.getElementById('fields_json_input').value = JSON.stringify(payload);
+            document.getElementById('save-all-form').submit();
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+            initialFields.forEach(f => addField(f));
+
+            document.getElementById("add-field-btn").addEventListener("click", function () {
+                addField();
                 updateSummary();
-            }
-        });
+            });
 
-        row.querySelector('[data-column="btn_delete"]').addEventListener('click', function(){
-            const id = row.getAttribute('data-field-id');
-            if (id && id !== 'null') {
-                deletedFields.add(parseInt(id));
-            }
-            row.remove();
+            document.getElementById("save-all-btn").addEventListener("click", saveAll);
+
             updateSummary();
         });
-
-        tableBody.appendChild(row);
-    }
-
-    function undeleteField(id) {
-        deletedFields.delete(id);
-        const orig = findOriginal(id);
-        if (orig) {
-            addField(orig);
-        }
-        updateSummary();
-    }
-
-    function saveAll() {
-        const current = getCurrentState();
-        const payload = [];
-
-        // Add deleted fields to payload
-        deletedFields.forEach(id => {
-            payload.push({
-                id: id,
-                deleted: 1
-            });
-        });
-
-        // Add current fields
-        current.forEach((field, idx) => {
-            payload.push({
-                id: field.id || 0,
-                name: field.name,
-                field_type: field.field_type,
-                is_required: field.is_required ? 1 : 0,
-                is_translatable: field.is_translatable ? 1 : 0,
-                order: idx,
-                deleted: 0
-            });
-        });
-
-        document.getElementById('fields_json_input').value = JSON.stringify(payload);
-        document.getElementById('save-all-form').submit();
-    }
-
-    window.addEventListener('DOMContentLoaded', function(){
-        initialFields.forEach(f => addField(f));
-
-        document.getElementById("add-field-btn").addEventListener("click", function(){
-            addField();
-            updateSummary();
-        });
-
-        document.getElementById("save-all-btn").addEventListener("click", saveAll);
-
-        updateSummary();
-    });
-})();
+    })();
 </script>

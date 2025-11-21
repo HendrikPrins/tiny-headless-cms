@@ -24,7 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $entryId = $db->createEntry($ctId);
             }
 
-            // Save translatable fields for all locales (process all, even if not present in POST)
             foreach ($locales as $locale) {
                 $translatableValues = [];
                 foreach ($fields as $f) {
@@ -33,19 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!$isTranslatable) { continue; }
                     $key = 'field_' . $fid . '_' . $locale;
                     $raw = $_POST[$key] ?? '';
-                    switch ($f['field_type']) {
-                        case 'integer':
-                            $translatableValues[$fid] = ($raw === '') ? null : (string)(int)$raw; break;
-                        case 'decimal':
-                            $translatableValues[$fid] = ($raw === '') ? null : (string)(float)$raw; break;
-                        case 'boolean':
-                            // checkbox posts only when checked
-                            $translatableValues[$fid] = isset($_POST[$key]) ? '1' : '0'; break;
-                        case 'text':
-                        case 'string':
-                        default:
-                            $translatableValues[$fid] = $raw; break;
-                    }
+                    $fieldType = FieldRegistry::get($f['field_type']);
+                    $translatableValues[$fid] = $fieldType->deserializeFromPost($_POST, $key);
                 }
                 // Save translatable values for this locale
                 if (!empty($translatableValues)) {
@@ -59,19 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $fid = (int)$f['id'];
                 if (!(bool)$f['is_translatable']) {
                     $key = 'field_' . $fid;
-                    $raw = $_POST[$key] ?? '';
-                    switch ($f['field_type']) {
-                        case 'integer':
-                            $nonTranslatableValues[$fid] = ($raw === '') ? null : (string)(int)$raw; break;
-                        case 'decimal':
-                            $nonTranslatableValues[$fid] = ($raw === '') ? null : (string)(float)$raw; break;
-                        case 'boolean':
-                            $nonTranslatableValues[$fid] = isset($_POST[$key]) ? '1' : '0'; break;
-                        case 'text':
-                        case 'string':
-                        default:
-                            $nonTranslatableValues[$fid] = $raw; break;
-                    }
+                    $fieldType = FieldRegistry::get($f['field_type']);
+                    $nonTranslatableValues[$fid] = $fieldType->deserializeFromPost($_POST, $key);
                 }
             }
             if (!empty($nonTranslatableValues)) {
@@ -136,33 +113,19 @@ if ($entryId > 0) {
             <?php foreach ($locales as $loc): $val = $valuesByLocale[$loc][$fid] ?? ''; $inputName='field_'.$fid.'_'.$loc; ?>
                 <label class="field" data-locale-field="<?= htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ?>">
                     <span><?= $name ?><?= $f['is_required'] ? ' *' : '' ?> <span class="field-locale">[<?= strtoupper(htmlspecialchars($loc, ENT_QUOTES, 'UTF-8')) ?>]</span></span>
-                    <?php if ($ft === 'text'): ?>
-                        <textarea name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" rows="4" style="resize:vertical;"><?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?></textarea>
-                    <?php elseif ($ft === 'integer'): ?>
-                        <input type="number" step="1" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
-                    <?php elseif ($ft === 'decimal'): ?>
-                        <input type="number" step="any" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
-                    <?php elseif ($ft === 'boolean'): ?>
-                        <input type="checkbox" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="1" <?= ($val === '1') ? 'checked' : '' ?>>
-                    <?php else: ?>
-                        <input type="text" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
-                    <?php endif; ?>
+                    <?php
+                    $fieldType = FieldRegistry::get($ft);
+                    echo $fieldType->renderAdminForm(htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8'), $val);
+                    ?>
                 </label>
             <?php endforeach; ?>
         <?php else: $val = $valuesByLocale[''][$fid] ?? ''; $inputName='field_'.$fid; ?>
             <label class="field" data-locale-field="__global">
                 <span><?= $name ?><?= $f['is_required'] ? ' *' : '' ?></span>
-                <?php if ($ft === 'text'): ?>
-                    <textarea name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" rows="4" style="resize:vertical;"><?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?></textarea>
-                <?php elseif ($ft === 'integer'): ?>
-                    <input type="number" step="1" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
-                <?php elseif ($ft === 'decimal'): ?>
-                    <input type="number" step="any" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
-                <?php elseif ($ft === 'boolean'): ?>
-                    <input type="checkbox" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="1" <?= ($val === '1') ? 'checked' : '' ?>>
-                <?php else: ?>
-                    <input type="text" name="<?= htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>">
-                <?php endif; ?>
+                <?php
+                $fieldType = FieldRegistry::get($ft);
+                echo $fieldType->renderAdminForm(htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8'), $val);
+                ?>
             </label>
         <?php endif; ?>
     <?php endforeach; ?>

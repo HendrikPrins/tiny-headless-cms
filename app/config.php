@@ -54,3 +54,4 @@ const CMS_ASSETS_TMP_DIR = 'temp';
 
 require __DIR__ . '/database.php';
 require __DIR__ . '/icons.php';
+require __DIR__ . '/fields/FieldRegistry.php';
