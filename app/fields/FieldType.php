@@ -17,4 +17,5 @@ abstract class FieldType {
     abstract public function deserializeFromPost(array $postData, string $fieldName): mixed;
 
     abstract public function renderAdminForm(string $fieldName, mixed $value): string;
+    abstract public function renderPreview(string $fieldName, mixed $value): string;
 }

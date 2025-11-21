@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if ($name === '') {
                                 throw new InvalidArgumentException('Field name is required for updates');
                             }
-                            if (!in_array($type, $fieldTypes, true)) {
+                            if (!FieldRegistry::isValidType($type)) {
                                 throw new InvalidArgumentException('Invalid field type for updates');
                             }
                             $db->updateField($fid, $name, $type, $is_required, $is_translatable, $order);
@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if ($name === '') {
                                 continue;
                             }
-                            if (!in_array($type, $fieldTypes, true)) {
+                            if (!FieldRegistry::isValidType($type)) {
                                 throw new InvalidArgumentException('Invalid field type for create');
                             }
                             $db->createField($id, $name, $type, $is_required, $is_translatable, $order);

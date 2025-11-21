@@ -24,4 +24,8 @@ class BooleanFieldType extends FieldType {
         $checked = $value === '1' ? "checked" : "";
         return "<input type='checkbox' name='{$fieldName}' {$checked} />";
     }
+
+    public function renderPreview(string $fieldName, mixed $value): string {
+        return $value ? '✓' : '✗';
+    }
 }

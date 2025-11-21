@@ -171,8 +171,7 @@ class Database {
         if ($name === '') {
             throw new InvalidArgumentException('Field name is required');
         }
-        $allowed = ['string', 'text', 'integer', 'decimal', 'boolean'];
-        if (!in_array($field_type, $allowed, true)) {
+        if (!FieldRegistry::isValidType($field_type)) {
             throw new InvalidArgumentException('Invalid field type');
         }
 
@@ -196,8 +195,7 @@ class Database {
         if ($name === '') {
             throw new InvalidArgumentException('Field name is required');
         }
-        $allowed = ['string', 'text', 'integer', 'decimal', 'boolean'];
-        if (!in_array($field_type, $allowed, true)) {
+        if (!FieldRegistry::isValidType($field_type)) {
             throw new InvalidArgumentException('Invalid field type');
         }
 

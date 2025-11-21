@@ -23,4 +23,12 @@ class StringFieldType extends FieldType {
     public function renderAdminForm(string $fieldName, mixed $value): string {
         return "<input type='text' name='{$fieldName}' value='" . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . "' />";
     }
+
+    public function renderPreview(string $fieldName, mixed $value): string {
+        $str = (string)$value;
+        if (mb_strlen($str) > 40) {
+            return htmlspecialchars(mb_substr($str, 0, 40), ENT_QUOTES, 'UTF-8') . '...';
+        }
+        return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+    }
 }

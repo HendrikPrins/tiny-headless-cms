@@ -92,48 +92,19 @@ foreach ($entries as $e) {
                     <tr>
                         <td>#<?= $entry['id'] ?></td>
                         <?php foreach ($previewFields as $field):
-                            $fid = (int)$field['id'];
-                            $isTranslatable = (bool)$field['is_translatable'];
-
-                            // Get value from appropriate source
-                            $value = $isTranslatable
-                                ? ($entry['translatable_values'][$fid] ?? '')
-                                : ($entry['non_translatable_values'][$fid] ?? '');
-
-                            // Format value based on field type
-                            $displayValue = '';
-                            if ($value === '' || $value === null) {
-                                $displayValue = '<span style="color:#999;">-</span>';
-                            } else {
-                                switch ($field['field_type']) {
-                                    case 'boolean':
-                                        $displayValue = $value === '1' ? '✓' : '✗';
-                                        break;
-                                    case 'text':
-                                        // Truncate long text
-                                        if (strlen($value) > 60) {
-                                            $displayValue = htmlspecialchars(substr($value, 0, 60), ENT_QUOTES, 'UTF-8') . '...';
-                                        } else {
-                                            $displayValue = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-                                        }
-                                        break;
-                                    case 'string':
-                                        // Truncate long strings
-                                        if (strlen($value) > 40) {
-                                            $displayValue = htmlspecialchars(substr($value, 0, 40), ENT_QUOTES, 'UTF-8') . '...';
-                                        } else {
-                                            $displayValue = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-                                        }
-                                        break;
-                                    case 'integer':
-                                    case 'decimal':
-                                        $displayValue = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-                                        break;
-                                    default:
-                                        $displayValue = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-                                }
-                            }
-                        ?>
+    $fid = (int)$field['id'];
+    $isTranslatable = (bool)$field['is_translatable'];
+    $value = $isTranslatable
+        ? ($entry['translatable_values'][$fid] ?? '')
+        : ($entry['non_translatable_values'][$fid] ?? '');
+    $fieldTypeObj = FieldRegistry::get($field['field_type']);
+    if ($fieldTypeObj) {
+        $converted = $fieldTypeObj->readFromDb((string)$value);
+        $displayValue = $fieldTypeObj->renderPreview($field['name'], $converted);
+    } else {
+        $displayValue = htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    }
+?>
                             <td><?= $displayValue ?></td>
                         <?php endforeach; ?>
                         <td style="white-space:nowrap;">

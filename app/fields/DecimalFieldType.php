@@ -23,4 +23,8 @@ class DecimalFieldType extends FieldType {
     public function renderAdminForm(string $fieldName, mixed $value): string {
         return "<input type='number' name='{$fieldName}' value='" . htmlspecialchars((string)$value) . "' />";
     }
+
+    public function renderPreview(string $fieldName, mixed $value): string {
+        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    }
 }

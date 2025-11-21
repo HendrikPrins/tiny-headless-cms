@@ -23,5 +23,12 @@ class TextFieldType extends FieldType {
     public function renderAdminForm(string $fieldName, mixed $value): string {
         return "<textarea name='{$fieldName}' rows='5'>" . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . "</textarea>";
     }
-}
 
+    public function renderPreview(string $fieldName, mixed $value): string {
+        $str = (string)$value;
+        if (mb_strlen($str) > 60) {
+            return htmlspecialchars(mb_substr($str, 0, 60), ENT_QUOTES, 'UTF-8') . '...';
+        }
+        return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+    }
+}
