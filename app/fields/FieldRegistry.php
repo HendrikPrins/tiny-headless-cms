@@ -1,4 +1,6 @@
 <?php
+require __DIR__ . '/FieldType.php';
+
 class FieldRegistry {
     private static array $types = [];
 
@@ -14,28 +16,36 @@ class FieldRegistry {
         return array_keys(self::$types);
     }
 
-    function loadFieldTypes(string $directory, string $namespace): void {
+    public static function loadFieldTypes(string $directory): void {
+        if (!is_dir($directory)) {
+            trigger_error("Field type directory '{$directory}' not found.", E_USER_WARNING);
+            return;
+        }
+
         foreach (glob($directory . '/*.php') as $file) {
-            require_once $file; // ensure class is loaded
+            if (in_array($file, [__FILE__, __DIR__ . '/FieldType.php'])) {
+                continue; // Skip base class and registry file
+            }
+            try {
+                require_once $file;
 
-            // Derive class name from filename
-            $className = $namespace . '\\' . basename($file, '.php');
+                $className = basename($file, '.php');
 
-            if (class_exists($className) && is_subclass_of($className, FieldType::class)) {
-                // Instantiate once and register
+                if (!class_exists($className)) {
+                    trigger_error("Class '{$className}' not found in file '{$file}'.", E_USER_WARNING);
+                    continue;
+                }
+
+                if (!is_subclass_of($className, FieldType::class)) {
+                    trigger_error("Class '{$className}' does not extend FieldType.", E_USER_WARNING);
+                    continue;
+                }
+
                 $instance = new $className();
-                FieldRegistry::register($instance);
+                self::register($instance);
+            } catch (\Throwable $e) {
+                trigger_error("Error loading field type from '{$file}': " . $e->getMessage(), E_USER_WARNING);
             }
         }
     }
 }
-
-require_once __DIR__ . '/FieldType.php';
-require_once __DIR__ . '/StringFieldType.php';
-require_once __DIR__ . '/IntegerFieldType.php';
-require_once __DIR__ . '/DecimalFieldType.php';
-require_once __DIR__ . '/BooleanFieldType.php';
-FieldRegistry::register(new StringFieldType());
-FieldRegistry::register(new IntegerFieldType());
-FieldRegistry::register(new DecimalFieldType());
-FieldRegistry::register(new BooleanFieldType());
