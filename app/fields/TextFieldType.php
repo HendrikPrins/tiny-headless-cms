@@ -1,0 +1,27 @@
+<?php
+class TextFieldType extends FieldType {
+    public function __construct() {
+        parent::__construct("text");
+    }
+
+    public function saveToDb(mixed $value): string {
+        return (string)$value;
+    }
+
+    public function readFromDb(string $raw): mixed {
+        return $raw;
+    }
+
+    public function serializeToJson(mixed $value): mixed {
+        return (string)$value;
+    }
+
+    public function deserializeFromPost(array $postData, string $fieldName): mixed {
+        return $postData[$fieldName] ?? "";
+    }
+
+    public function renderAdminForm(string $fieldName, mixed $value): string {
+        return "<textarea name='{$fieldName}' rows='5'>" . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . "</textarea>";
+    }
+}
+

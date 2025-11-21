@@ -278,16 +278,40 @@ class Database {
     // Save or update values for locale NULL
     public function saveEntryValues(int $entryId, array $valuesByFieldId, string $locale)
     {
+        if (empty($valuesByFieldId)) {
+            return;
+        }
+
+        // Get field information to determine field types
+        $fieldIds = array_keys($valuesByFieldId);
+        $placeholders = implode(',', array_fill(0, count($fieldIds), '?'));
+        $stmt = $this->connection->prepare("SELECT id, field_type FROM fields WHERE id IN ({$placeholders})");
+        $stmt->execute(array_values($fieldIds));
+        $fieldTypes = [];
+        while ($row = $stmt->fetch()) {
+            $fieldTypes[(int)$row['id']] = $row['field_type'];
+        }
+
         // Use upsert
         $sql = "INSERT INTO field_values (entry_id, field_id, locale, value) VALUES (:eid, :fid, :loc, :val)
                 ON DUPLICATE KEY UPDATE value = VALUES(value)";
         $stmt = $this->connection->prepare($sql);
         foreach ($valuesByFieldId as $fieldId => $val) {
             $fid = (int)$fieldId;
+
+            // Convert value to DB format using FieldType
+            $dbValue = $val;
+            if (isset($fieldTypes[$fid])) {
+                $fieldTypeObj = FieldRegistry::get($fieldTypes[$fid]);
+                if ($fieldTypeObj !== null) {
+                    $dbValue = $fieldTypeObj->saveToDb($val);
+                }
+            }
+
             $stmt->bindParam(':eid', $entryId, PDO::PARAM_INT);
             $stmt->bindParam(':fid', $fid, PDO::PARAM_INT);
             $stmt->bindParam(':loc', $locale);
-            $stmt->bindParam(':val', $val);
+            $stmt->bindParam(':val', $dbValue);
             $stmt->execute();
         }
     }
@@ -510,7 +534,7 @@ class Database {
     }
 
     /**
-     * Cast value to appropriate type based on field type
+     * Cast value to appropriate type based on field type using FieldRegistry
      * @param mixed $value The value to cast
      * @param string $fieldType The field type
      * @return mixed The casted value
@@ -521,18 +545,11 @@ class Database {
             return null;
         }
 
-        switch ($fieldType) {
-            case 'integer':
-                return (int)$value;
-            case 'decimal':
-                return (float)$value;
-            case 'boolean':
-                return (bool)$value;
-            case 'string':
-            case 'text':
-            default:
-                return $value;
+        $fieldTypeObj = FieldRegistry::get($fieldType);
+        if ($fieldTypeObj === null) {
+            return $value;
         }
+        return $fieldTypeObj->serializeToJson($fieldTypeObj->readFromDb((string)$value));
     }
 
     // Asset Methods
