@@ -115,7 +115,7 @@ foreach (FieldRegistry::getAll() as $ft) {
         <?php if ($isTranslatable): ?>
             <?php foreach ($locales as $loc): $val = $valuesByLocale[$loc][$fid] ?? ''; $inputName='field_'.$fid.'_'.$loc; ?>
                 <label class="field" data-locale-field="<?= htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ?>">
-                    <span><?= $name ?><?= $f['is_required'] ? ' *' : '' ?> <span class="field-locale">[<?= strtoupper(htmlspecialchars($loc, ENT_QUOTES, 'UTF-8')) ?>]</span></span>
+                    <div class="label"><span><?= $name ?></span><?= $f['is_required'] ? ' *' : '' ?> <span class="field-locale">[<?= strtoupper(htmlspecialchars($loc, ENT_QUOTES, 'UTF-8')) ?>]</span><span><?=$ft?></span></div>
                     <?php
                     $fieldType = FieldRegistry::get($ft);
                     echo $fieldType->renderAdminForm(htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8'), $val);
@@ -124,7 +124,7 @@ foreach (FieldRegistry::getAll() as $ft) {
             <?php endforeach; ?>
         <?php else: $val = $valuesByLocale[''][$fid] ?? ''; $inputName='field_'.$fid; ?>
             <label class="field" data-locale-field="__global">
-                <span><?= $name ?><?= $f['is_required'] ? ' *' : '' ?></span>
+                <div class="label"><span><?= $name ?></span><?= $f['is_required'] ? ' *' : '' ?><span><?=$ft?></span></div>
                 <?php
                 $fieldType = FieldRegistry::get($ft);
                 echo $fieldType->renderAdminForm(htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8'), $val);

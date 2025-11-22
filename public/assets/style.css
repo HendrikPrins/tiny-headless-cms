@@ -369,6 +369,18 @@ nav.breadcrumb ol li + li::before {
     gap: 6px;
 }
 
+.field > .label {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.field > .label > :last-child {
+    flex-grow: 2;
+    text-align: right;
+    color: var(--text-secondary);
+}
+
 .field-hidden {
     display: none;
 }
