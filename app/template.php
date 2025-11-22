@@ -14,8 +14,7 @@
         <nav>
             <a href="admin.php?page=content-type">Content Types</a>
             <a href="admin.php?page=assets">Assets</a>
-            <a href="admin.php?page=users">Users</a>
-            <a href="admin.php?page=logout">Logout</a>
+            <a href="admin.php?page=settings">Settings</a>
         </nav>
     </div>
 </header>
