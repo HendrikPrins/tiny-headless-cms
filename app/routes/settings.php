@@ -7,9 +7,17 @@ $csrf = htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8');
 <h1>Settings</h1>
 
 <h2>Profile</h2>
-Your username: <?php echo htmlspecialchars($_SESSION['user_username']); ?><br>
-Your role: <?php echo htmlspecialchars($_SESSION['user_role']); ?><br>
-<a href="admin.php?page=logout">Logout</a>
+Your username: <b><?php echo htmlspecialchars($_SESSION['user_username']); ?></b><br>
+Your role: <b><?php echo htmlspecialchars($_SESSION['user_role']); ?></b><br>
+<br>
+<button type="button" class="btn-secondary" id="logout-btn">Logout</button>
+<script>
+document.getElementById('logout-btn').addEventListener('click', function() {
+    if (confirm('Are you sure you want to log out?')) {
+        window.location.href = 'admin.php?page=logout';
+    }
+});
+</script>
 
 <h2>Users</h2>
 <div style="margin-bottom:12px;">
