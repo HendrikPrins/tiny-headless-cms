@@ -791,4 +791,41 @@ class Database {
         }
         return ''; // 'all' - no filter
     }
+
+    public function getAllUsers(): array {
+        $stmt = $this->connection->query("SELECT id, username, role FROM users ORDER BY id ASC");
+        return $stmt->fetchAll();
+    }
+
+    public function getUserById(int $id): ?array {
+        $stmt = $this->connection->prepare("SELECT id, username, password, role FROM users WHERE id = :id");
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    public function updateUser(int $id, string $username, ?string $newPassword, ?string $newRole, bool $allowRoleChange): bool {
+        $current = $this->getUserById($id);
+        if (!$current) { throw new InvalidArgumentException('User not found'); }
+        $username = trim($username);
+        if ($username === '') { throw new InvalidArgumentException('Username required'); }
+        $roleToSet = $allowRoleChange && $newRole !== null ? $newRole : $current['role'];
+        $passToSet = $current['password'];
+        if ($newPassword !== null && $newPassword !== '') {
+            $passToSet = password_hash($newPassword, PASSWORD_BCRYPT);
+        }
+        $stmt = $this->connection->prepare("UPDATE users SET username = :username, password = :password, role = :role WHERE id = :id");
+        $stmt->bindParam(':username', $username);
+        $stmt->bindParam(':password', $passToSet);
+        $stmt->bindParam(':role', $roleToSet);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
+
+    public function deleteUser(int $id): bool {
+        $stmt = $this->connection->prepare("DELETE FROM users WHERE id = :id");
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
 }

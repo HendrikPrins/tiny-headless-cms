@@ -158,13 +158,11 @@ $jsFields = array_map(function ($f) {
     <h1>Edit Content Type: <?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?></h1>
 </div>
 
-<form method="post" style="margin-bottom:12px; display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+<form method="post" class="form form-inline">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="rename">
-    <label style="display:flex; flex-direction:column; gap:4px;">
-        <span>Content Type Name</span>
-        <input type="text" name="new_name" value="<?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?>" maxlength="255" required style="min-width:260px;">
-    </label>
+    <label for="new_name">Content Type Name</label>
+    <input type="text" id="new_name" name="new_name" value="<?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?>" maxlength="255" required style="min-width:260px;">
     <button type="submit" class="btn-primary">Rename</button>
 </form>
 
@@ -231,13 +229,15 @@ $jsFields = array_map(function ($f) {
         <div id="changes-list"></div>
     </div>
 
-    <form id="save-all-form" method="post" style="margin-top:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <form id="save-all-form" method="post" class="form">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="action" value="save_all">
         <input type="hidden" name="fields_json" id="fields_json_input">
-        <button type="button" id="save-all-btn" class="btn-primary">Save All</button>
-        <button type="button" id="add-field-btn" class="btn-primary">Add Field</button>
-        <a href="?page=content-type" class="btn-secondary">Cancel</a>
+        <div class="form-buttons">
+            <button type="button" id="save-all-btn" class="btn-primary">Save All</button>
+            <button type="button" id="add-field-btn" class="btn-primary">Add Field</button>
+            <a href="?page=content-type" class="btn-secondary">Cancel</a>
+        </div>
     </form>
 </div>
 

@@ -31,6 +31,8 @@ $routes = [
     "asset-upload",
     "assets-json",
     "settings",
+    "user-add",
+    "user-edit",
 ];
 
 ob_start();

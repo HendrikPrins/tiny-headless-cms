@@ -84,6 +84,10 @@ header nav {
     margin-top: 1rem;
 }
 
+h2 {
+    margin-top: 1em;
+}
+
 a {
     color: var(--text-link);
     text-decoration: none;
@@ -162,6 +166,29 @@ td.table-nowrap {
     text-align: center;
 }
 
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.form-limited {
+    max-width: 500px;
+}
+
+.form-inline {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+}
+
 input, select, textarea {
     background-color: var(--bg-input);
     color: var(--text-primary);
@@ -182,6 +209,12 @@ input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--color-primary);
     background-color: var(--bg-input-focus);
+}
+
+input:disabled, select:disabled, textarea:disabled {
+    background-color: var(--bg-input-focus);
+    color: var(--text-secondary);
+    cursor: not-allowed;
 }
 
 ::placeholder {
@@ -268,6 +301,9 @@ button > svg, .btn > svg {
     height: 1.5em;
 }
 
+.text-secondary {
+    color: var(--text-secondary);
+}
 
 .alert {
     padding: 1rem;

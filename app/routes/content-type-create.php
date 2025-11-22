@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="alert alert-danger"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
 <?php endif; ?>
 
-<form method="post" style="display:flex; flex-direction:column; gap:12px; max-width:520px;">
+<form method="post" class="form form-limited">
     <input type="hidden" name="is_singleton" value="<?= $is_singleton ? '1' : '0' ?>">
     <label for="name">Name</label>
     <input
@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         required
         value="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"
     >
-    <div style="display:flex; gap:8px; align-items:center;">
+    <div class="form-buttons">
         <button type="submit" class="btn-primary">Create</button>
         <a href="?page=content-type" class="btn-secondary">Cancel</a>
     </div>

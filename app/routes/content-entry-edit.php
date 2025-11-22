@@ -108,7 +108,7 @@ foreach (FieldRegistry::getAll() as $ft) {
     <?php endforeach; ?>
 </div>
 
-<form method="post" style="display:flex; flex-direction:column; gap:14px; max-width:960px;">
+<form method="post" class="form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 
     <?php foreach ($fields as $f): $fid=(int)$f['id']; $name = htmlspecialchars($f['name'], ENT_QUOTES, 'UTF-8'); $ft=$f['field_type']; $isTranslatable=(bool)$f['is_translatable']; ?>
@@ -133,7 +133,7 @@ foreach (FieldRegistry::getAll() as $ft) {
         <?php endif; ?>
     <?php endforeach; ?>
 
-    <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+    <div class="form-buttons">
         <button type="submit" class="btn-primary">Save</button>
         <?php if (!$ct['is_singleton']): ?>
         <a href="?page=content-entries&ct=<?= (int)$ctId ?>" class="btn-secondary">Cancel</a>

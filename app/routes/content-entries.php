@@ -80,7 +80,7 @@ foreach ($entries as $e) {
                             <th>
                                 <?= htmlspecialchars($field['name'], ENT_QUOTES, 'UTF-8') ?>
                                 <?php if ((bool)$field['is_translatable']): ?>
-                                    <span style="font-size:0.75em; color:#999; font-weight:normal;">(<?= strtoupper($previewLocale) ?>)</span>
+                                    <span class="text-secondary">(<?= strtoupper($previewLocale) ?>)</span>
                                 <?php endif; ?>
                             </th>
                         <?php endforeach; ?>

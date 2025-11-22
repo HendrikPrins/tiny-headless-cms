@@ -162,7 +162,6 @@ $assets = $db->getAssets($currentDir);
 ?>
 
 <div class="content-header">
-    <h1>Assets</h1>
     <nav class="breadcrumb" aria-label="breadcrumb">
         <ol>
             <li><a href="?page=assets">Assets</a></li>
@@ -176,6 +175,7 @@ $assets = $db->getAssets($currentDir);
             <?php endforeach; endif; ?>
         </ol>
     </nav>
+    <h1>Assets</h1>
 </div>
 
 <div class="buttons">
