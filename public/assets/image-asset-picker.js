@@ -23,7 +23,7 @@
           <button type="button" id="iap-search-btn" class="btn-secondary" aria-label="Search">Search</button>
         </div>
         <div class="iap-breadcrumb" id="iap-breadcrumb"></div>
-        <div class="iap-dir-grid" id="iap-dir-grid"></div>
+        <div class="directory-grid" id="iap-dir-grid"></div>
         <div class="iap-results" id="iap-results" aria-live="polite"></div>
         <div class="iap-footer">
           <button type="button" id="iap-load-more" class="btn-secondary" hidden>Load More</button>
@@ -112,13 +112,19 @@
 
         function renderDirectories(sub) {
             dirGridEl.innerHTML = '';
-            if (!sub || !sub.length) return;
+            if (!sub || !sub.length) {
+                dirGridEl.classList.add('hidden');
+                return;
+            }
+            dirGridEl.classList.remove('hidden');
             sub.forEach(sd => {
                 const name = sd.split('/').pop();
-                const el = document.createElement('div');
-                el.className = 'iap-dir-tile';
-                el.innerHTML = `<div class='iap-dir-name'><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2" /></svg> ${name}</div>`;
-                el.addEventListener('click', () => {
+                const el = document.createElement('a');
+                el.href = '#';
+                el.className = 'directory-tile';
+                el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span class="directory-name">${escapeHtml(name)}</span>`;
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
                     currentDir = sd;
                     offset = 0;
                     fetchBatch(true);
@@ -156,7 +162,11 @@
             items.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'iap-item';
-                div.innerHTML = `<div class=\"iap-thumb\">${item.mime && item.mime.startsWith('image/') ? `<img src='${item.url}' alt=''>` : '<span class=iap-file-icon>📄</span>'}</div><div class=\"iap-meta\"><div class=\"iap-fn\">${escapeHtml(item.filename)}</div><div class=\"iap-size\">${formatSize(item.size)}</div></div>`;
+                const isImage = item.mime && item.mime.startsWith('image/');
+                const thumbHtml = isImage
+                    ? `<img src='${item.url}' alt='' class='asset-thumb'>`
+                    : '<span class="file-icon">📄</span>';
+                div.innerHTML = `<div class="iap-thumb">${thumbHtml}</div><div class="iap-meta"><div class="iap-fn">${escapeHtml(item.filename)}</div><div class="iap-size">${formatSize(item.size)}</div></div>`;
                 div.addEventListener('click', () => {
                     try {
                         if (onSelect) {
