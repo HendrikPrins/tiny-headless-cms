@@ -1,19 +1,19 @@
 :root {
-    --bg-body: #272727;
-    --bg-content: #1e1e1e;
-    --bg-header: #060606;
-    --bg-card: #2c2c2c;
-    --bg-card-hover: #242424;
-    --bg-row-even: #2c2c2c;
-    --bg-thead: #333;
-    --bg-input: #1e1e1e;
-    --bg-input-focus: #171717;
+    --bg-body: #ffffff;
+    --bg-content: #ffffff;
+    --bg-header: #F8F8F8;
+    --bg-card: #F8F8F8;
+    --bg-card-hover: #e1e1e1;
+    --bg-row-even: #ededed;
+    --bg-thead: #ededed;
+    --bg-input: #fff;
+    --bg-input-focus: #f0f0f0;
 
-    --color-light: #2a2a2a;
-    --color-light-shade: #3a3a3a;
-    --color-light-contrast: #fff;
-    --color-primary: #0066cc;
-    --color-primary-shade: #004999;
+    --color-light: #dfdfdf;
+    --color-light-shade: #c9c9c9;
+    --color-light-contrast: #171717;
+    --color-primary: #186997;
+    --color-primary-shade: #14557a;
     --color-primary-contrast: #fff;
     --color-success: #28a745;
     --color-success-shade: #1e7e34;
@@ -25,11 +25,11 @@
     --color-danger-shade: #992222;
     --color-danger-contrast: #fff;
 
-    --text-primary: #ffffff;
-    --text-secondary: #888;
-    --text-link: #61dafb;
+    --text-primary: #171717;
+    --text-secondary: #535353;
+    --text-link: #a11e23;
 
-    --border-color: #444;
+    --border-color: #aaaaaa;
 }
 
 * {
@@ -87,6 +87,7 @@ header nav {
 a {
     color: var(--text-link);
     text-decoration: none;
+    font-weight: 600;
 }
 
 a:hover {
@@ -173,6 +174,8 @@ input, select, textarea {
 
 input[type="checkbox"] {
     accent-color: var(--color-primary);
+    width: 1.25rem;
+    height: 1.25rem;
 }
 
 input:focus, select:focus, textarea:focus {
@@ -260,6 +263,11 @@ button > svg, .btn > svg {
     --btn-bg-hover: var(--text-secondary);
 }
 
+.btn-icon svg {
+    width: 1.5em;
+    height: 1.5em;
+}
+
 
 .alert {
     padding: 1rem;
@@ -288,6 +296,7 @@ button > svg, .btn > svg {
 
 nav.breadcrumb {
     font-size: 14px;
+    font-weight: 600;
 }
 
 nav.breadcrumb ol {
