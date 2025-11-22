@@ -93,7 +93,7 @@ class RichTextFieldType extends FieldType {
                         quote: Quote,
                         delimiter: Delimiter,
                         code: CodeTool,
-                        imageAsset: { class: ImageAssetTool, inlineToolbar: false }
+                        imageAsset: { class: ImageAssetTool, inlineToolbar: false, config: { onDataChange: function(){ editor.save().then(function(outputData){ hiddenInput.value = JSON.stringify(outputData); }).catch(function(err){ console.error('Immediate save error', err); }); } } }
                     },
                     onChange: function() {
                         editor.save().then(function(outputData) { hiddenInput.value = JSON.stringify(outputData); }).catch(function(error) { console.error('EditorJS save error', error); });

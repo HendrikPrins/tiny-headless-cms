@@ -1,5 +1,4 @@
 (function () {
-    if (window.ImageAssetPicker) return; // reuse singleton
     function createModal() {
         const existing = document.getElementById('image-asset-picker-modal');
         if (existing) return existing;
@@ -39,13 +38,6 @@
         const searchBtn = modal.querySelector('#iap-search-btn');
         const loadMoreBtn = modal.querySelector('#iap-load-more');
         let offset = 0, limit = 40, total = 0, currentDir = '', currentQuery = '', loading = false, onSelect = null;
-
-        function open(cb) {
-            onSelect = cb;
-            resetState();
-            show();
-            fetchBatch(true);
-        }
 
         function resetState() {
             offset = 0;
@@ -89,7 +81,6 @@
                 renderAll(d, initial);
             }).catch(err => {
                 loading = false;
-                console.error('Asset picker fetch error', err);
                 resultsEl.innerHTML = '<div class="iap-empty">Failed to load assets.</div>';
             });
         }
@@ -205,7 +196,9 @@
             }
         });
         loadMoreBtn.addEventListener('click', () => fetchBatch(false));
-        window.ImageAssetPicker = {open};
+        function openInternal(cb){ onSelect = cb; resetState(); show(); fetchBatch(true); }
+        function openPicker(cb, options){ options = options || {}; if (!options.manual) return; if (!options.sourceButton) return; openInternal(cb); }
+        window.CMSImageAssetPicker = { openPicker };
     }
 
     if (document.readyState === 'loading') {
@@ -214,4 +207,3 @@
         init();
     }
 })();
-
