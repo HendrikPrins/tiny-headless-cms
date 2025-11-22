@@ -162,19 +162,21 @@ $assets = $db->getAssets($currentDir);
 ?>
 
 <div class="content-header">
+    <?php if (!empty($currentDir)): ?>
     <nav class="breadcrumb" aria-label="breadcrumb">
         <ol>
             <li><a href="?page=assets">Assets</a></li>
-            <?php if (!empty($currentDir)):
+            <?php
                 $parts = explode('/', $currentDir);
                 $breadcrumbPath = '';
                 foreach ($parts as $part):
                     $breadcrumbPath .= ($breadcrumbPath ? '/' : '') . $part;
             ?>
                 <li><a href="?page=assets&dir=<?= urlencode($breadcrumbPath) ?>"><?= htmlspecialchars($part, ENT_QUOTES, 'UTF-8') ?></a></li>
-            <?php endforeach; endif; ?>
+            <?php endforeach; ?>
         </ol>
     </nav>
+    <?php endif; ?>
     <h1>Assets</h1>
 </div>
 
