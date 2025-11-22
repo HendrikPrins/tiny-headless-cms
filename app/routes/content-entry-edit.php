@@ -79,6 +79,9 @@ if ($entryId > 0) {
     $valuesByLocale[''] = $db->getFieldValuesForEntry($entryId, '');
 }
 
+foreach (FieldRegistry::getAll() as $ft) {
+    echo $ft->renderAdminImports();
+}
 ?>
 <div class="content-header">
     <nav class="breadcrumb" aria-label="breadcrumb">

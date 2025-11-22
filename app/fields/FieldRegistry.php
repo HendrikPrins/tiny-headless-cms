@@ -12,6 +12,10 @@ class FieldRegistry {
         return self::$types[$name] ?? null;
     }
 
+    public static function getAll(): array {
+        return self::$types;
+    }
+
     public static function getTypeNames(): array {
         return array_keys(self::$types);
     }

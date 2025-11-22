@@ -684,4 +684,70 @@ class Database {
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         return $stmt->execute();
     }
+
+    /**
+     * Search assets by partial filename or path. Empty query returns paginated list.
+     * @param string $query Partial match string
+     * @param int $limit Max items to return (1-200)
+     * @param int $offset Offset for pagination
+     * @return array{total:int,limit:int,offset:int,items:array<int,array{id:int,filename:string,path:string,directory:string|null,mime_type:?string,size:?int,created_at:string}>}
+     */
+    public function searchAssets(string $query, int $limit = 50, int $offset = 0): array
+    {
+        $query = trim($query);
+        if ($query === '') {
+            // Fallback to simple listing with pagination
+            $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            $rows = $stmt->fetchAll();
+        } else {
+            $like = '%' . $query . '%';
+            $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE filename LIKE :like OR path LIKE :like ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+            $stmt->bindParam(':like', $like, PDO::PARAM_STR);
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            $rows = $stmt->fetchAll();
+        }
+        // total count for query
+        if ($query === '') {
+            $countStmt = $this->connection->query("SELECT COUNT(*) FROM assets");
+        } else {
+            $countStmt = $this->connection->prepare("SELECT COUNT(*) FROM assets WHERE filename LIKE :like OR path LIKE :like");
+            $like = '%' . $query . '%';
+            $countStmt->bindParam(':like', $like, PDO::PARAM_STR);
+            $countStmt->execute();
+        }
+        $total = (int)($query === '' ? $countStmt->fetchColumn() : $countStmt->fetchColumn());
+        return [
+            'total' => $total,
+            'limit' => $limit,
+            'offset' => $offset,
+            'items' => $rows,
+        ];
+    }
+
+    /**
+     * Paginated assets within a directory (empty string for root directory assets).
+     * @param string $directory
+     * @param int $limit
+     * @param int $offset
+     * @return array{total:int,limit:int,offset:int,items:array<int,array{id:int,filename:string,path:string,directory:string|null,mime_type:?string,size:?int,created_at:string}>}
+     */
+    public function getAssetsPaged(string $directory, int $limit = 50, int $offset = 0): array {
+        $directory = trim($directory);
+        $countStmt = $this->connection->prepare("SELECT COUNT(*) FROM assets WHERE directory = :dir");
+        $countStmt->bindParam(':dir', $directory);
+        $countStmt->execute();
+        $total = (int)$countStmt->fetchColumn();
+        $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE directory = :dir ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+        $stmt->bindParam(':dir', $directory);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll();
+        return [ 'total' => $total, 'limit' => $limit, 'offset' => $offset, 'items' => $rows ];
+    }
 }
