@@ -31,7 +31,7 @@ class ImageAssetTool {
                 this.data.filename = asset.filename;
                 this._renderInner();
                 this._notifyChange();
-            }, { manual: true, sourceButton: pickBtn });
+            }, { manual: true, sourceButton: pickBtn, defaultFilter: 'images' });
         });
         pickBtn.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -43,7 +43,7 @@ class ImageAssetTool {
                     this.data.filename = asset.filename;
                     this._renderInner();
                     this._notifyChange();
-                }, { manual: true, sourceButton: pickBtn });
+                }, { manual: true, sourceButton: pickBtn, defaultFilter: 'images' });
             }
         });
         this.wrapper.appendChild(pickBtn);

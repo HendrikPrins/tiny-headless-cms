@@ -586,6 +586,15 @@ nav.breadcrumb ol li + li::before {
     border-radius: 4px;
 }
 
+.iap-filter {
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    font: inherit;
+    cursor: pointer;
+}
+
 .iap-results {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

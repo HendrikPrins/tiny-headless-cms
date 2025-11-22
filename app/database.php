@@ -690,21 +690,32 @@ class Database {
      * @param string $query Partial match string
      * @param int $limit Max items to return (1-200)
      * @param int $offset Offset for pagination
+     * @param string $filter Filter type: 'all', 'images', 'other'
      * @return array{total:int,limit:int,offset:int,items:array<int,array{id:int,filename:string,path:string,directory:string|null,mime_type:?string,size:?int,created_at:string}>}
      */
-    public function searchAssets(string $query, int $limit = 50, int $offset = 0): array
+    public function searchAssets(string $query, int $limit = 50, int $offset = 0, string $filter = 'all'): array
     {
         $query = trim($query);
+
+        // Build MIME type filter
+        $mimeCondition = $this->buildMimeFilterCondition($filter);
+
         if ($query === '') {
             // Fallback to simple listing with pagination
-            $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+            $sql = "SELECT id, filename, path, directory, mime_type, size, created_at FROM assets";
+            if ($mimeCondition) $sql .= " WHERE $mimeCondition";
+            $sql .= " ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+            $stmt = $this->connection->prepare($sql);
             $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
             $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
             $stmt->execute();
             $rows = $stmt->fetchAll();
         } else {
             $like = '%' . $query . '%';
-            $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE filename LIKE :like OR path LIKE :like ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+            $sql = "SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE (filename LIKE :like OR path LIKE :like)";
+            if ($mimeCondition) $sql .= " AND ($mimeCondition)";
+            $sql .= " ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+            $stmt = $this->connection->prepare($sql);
             $stmt->bindParam(':like', $like, PDO::PARAM_STR);
             $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
             $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
@@ -713,14 +724,19 @@ class Database {
         }
         // total count for query
         if ($query === '') {
-            $countStmt = $this->connection->query("SELECT COUNT(*) FROM assets");
+            $sql = "SELECT COUNT(*) FROM assets";
+            if ($mimeCondition) $sql .= " WHERE $mimeCondition";
+            $countStmt = $this->connection->query($sql);
+            $total = (int)$countStmt->fetchColumn();
         } else {
-            $countStmt = $this->connection->prepare("SELECT COUNT(*) FROM assets WHERE filename LIKE :like OR path LIKE :like");
+            $sql = "SELECT COUNT(*) FROM assets WHERE (filename LIKE :like OR path LIKE :like)";
+            if ($mimeCondition) $sql .= " AND ($mimeCondition)";
+            $countStmt = $this->connection->prepare($sql);
             $like = '%' . $query . '%';
             $countStmt->bindParam(':like', $like, PDO::PARAM_STR);
             $countStmt->execute();
+            $total = (int)$countStmt->fetchColumn();
         }
-        $total = (int)($query === '' ? $countStmt->fetchColumn() : $countStmt->fetchColumn());
         return [
             'total' => $total,
             'limit' => $limit,
@@ -734,20 +750,45 @@ class Database {
      * @param string $directory
      * @param int $limit
      * @param int $offset
+     * @param string $filter Filter type: 'all', 'images', 'other'
      * @return array{total:int,limit:int,offset:int,items:array<int,array{id:int,filename:string,path:string,directory:string|null,mime_type:?string,size:?int,created_at:string}>}
      */
-    public function getAssetsPaged(string $directory, int $limit = 50, int $offset = 0): array {
+    public function getAssetsPaged(string $directory, int $limit = 50, int $offset = 0, string $filter = 'all'): array {
         $directory = trim($directory);
-        $countStmt = $this->connection->prepare("SELECT COUNT(*) FROM assets WHERE directory = :dir");
+
+        // Build MIME type filter
+        $mimeCondition = $this->buildMimeFilterCondition($filter);
+
+        $sql = "SELECT COUNT(*) FROM assets WHERE directory = :dir";
+        if ($mimeCondition) $sql .= " AND ($mimeCondition)";
+        $countStmt = $this->connection->prepare($sql);
         $countStmt->bindParam(':dir', $directory);
         $countStmt->execute();
         $total = (int)$countStmt->fetchColumn();
-        $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE directory = :dir ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+
+        $sql = "SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE directory = :dir";
+        if ($mimeCondition) $sql .= " AND ($mimeCondition)";
+        $sql .= " ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+        $stmt = $this->connection->prepare($sql);
         $stmt->bindParam(':dir', $directory);
         $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
         $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
         $rows = $stmt->fetchAll();
         return [ 'total' => $total, 'limit' => $limit, 'offset' => $offset, 'items' => $rows ];
+    }
+
+    /**
+     * Build SQL condition for MIME type filtering
+     * @param string $filter 'all', 'images', or 'other'
+     * @return string SQL condition or empty string
+     */
+    private function buildMimeFilterCondition(string $filter): string {
+        if ($filter === 'images') {
+            return "mime_type LIKE 'image/%'";
+        } elseif ($filter === 'other') {
+            return "(mime_type IS NULL OR mime_type NOT LIKE 'image/%')";
+        }
+        return ''; // 'all' - no filter
     }
 }

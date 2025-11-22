@@ -156,25 +156,8 @@ class RichTextFieldType extends FieldType {
                     }
                     break;
                 case 'imageAsset':
-                    $assetId = $data['assetId'] ?? null;
-                    $url = $data['url'] ?? '';
                     $alt = htmlspecialchars($data['alt'] ?? '', ENT_QUOTES, 'UTF-8');
-                    $caption = htmlspecialchars($data['caption'] ?? '', ENT_QUOTES, 'UTF-8');
-                    $exists = false;
-                    if ($assetId) {
-                        try { $asset = Database::getInstance()->getAssetById((int)$assetId); $exists = $asset !== null; } catch (Exception $e) { $exists = false; }
-                    }
-                    if ($exists && $url !== '') {
-                        $figure = '<figure class="cms-image"><img src="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" alt="' . $alt . '">';
-                        if ($caption !== '') { $figure .= '<figcaption>' . $caption . '</figcaption>'; }
-                        $figure .= '</figure>';
-                        $htmlParts[] = $figure;
-                    } else {
-                        $placeholder = '<figure class="cms-image cms-image-missing"><div class="missing-image" style="background:#eee;color:#666;padding:8px;text-align:center;border:1px dashed #ccc;">Image not found</div>';
-                        if ($caption !== '') { $placeholder .= '<figcaption>' . $caption . '</figcaption>'; }
-                        $placeholder .= '</figure>';
-                        $htmlParts[] = $placeholder;
-                    }
+                    $htmlParts[] = "&lt;img $alt&gt;";
                     break;
                 default:
                     // ignore unsupported block types

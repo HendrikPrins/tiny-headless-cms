@@ -14,7 +14,11 @@
           <button type="button" class="iap-close" data-iap-close aria-label="Close picker">&times;</button>
         </div>
         <div class="iap-search-bar">
-          <label class="visually-hidden" for="iap-search">Search assets</label>
+          <select id="iap-filter" class="iap-filter" aria-label="Filter by type">
+            <option value="all">All files</option>
+            <option value="images">Images only</option>
+            <option value="other">Other files</option>
+          </select>
           <input type="text" id="iap-search" placeholder="Search filename..." autocomplete="off" aria-label="Search filename">
           <button type="button" id="iap-search-btn" class="btn-secondary" aria-label="Search">Search</button>
         </div>
@@ -37,7 +41,8 @@
         const searchInput = modal.querySelector('#iap-search');
         const searchBtn = modal.querySelector('#iap-search-btn');
         const loadMoreBtn = modal.querySelector('#iap-load-more');
-        let offset = 0, limit = 40, total = 0, currentDir = '', currentQuery = '', loading = false, onSelect = null;
+        const filterSelect = modal.querySelector('#iap-filter');
+        let offset = 0, limit = 40, total = 0, currentDir = '', currentQuery = '', currentFilter = 'all', loading = false, onSelect = null;
 
         function resetState() {
             offset = 0;
@@ -49,6 +54,7 @@
             dirGridEl.innerHTML = '';
             breadcrumbEl.innerHTML = '';
             loadMoreBtn.hidden = true;
+            // Don't reset filter - it may be set by caller
         }
 
         function show() {
@@ -65,6 +71,8 @@
             if (loading) return;
             loading = true;
             const q = searchInput.value.trim();
+            const filter = filterSelect.value;
+            currentFilter = filter;
             if (initial) {
                 offset = 0;
                 resultsEl.innerHTML = '';
@@ -74,7 +82,7 @@
             if (offset === 0) {
                 resultsEl.innerHTML = '<div class="iap-loading">Loading...</div>';
             }
-            const url = `admin.php?page=assets-json&limit=${limit}&offset=${offset}&dir=${encodeURIComponent(currentDir)}&q=${encodeURIComponent(q)}`;
+            const url = `admin.php?page=assets-json&limit=${limit}&offset=${offset}&dir=${encodeURIComponent(currentDir)}&q=${encodeURIComponent(q)}&filter=${encodeURIComponent(filter)}`;
             fetch(url).then(r => r.json()).then(d => {
                 loading = false;
                 currentQuery = q;
@@ -109,7 +117,7 @@
                 const name = sd.split('/').pop();
                 const el = document.createElement('div');
                 el.className = 'iap-dir-tile';
-                el.innerHTML = `<div class='iap-dir-name'>📁 ${name}</div>`;
+                el.innerHTML = `<div class='iap-dir-name'><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2" /></svg> ${name}</div>`;
                 el.addEventListener('click', () => {
                     currentDir = sd;
                     offset = 0;
@@ -196,8 +204,22 @@
             }
         });
         loadMoreBtn.addEventListener('click', () => fetchBatch(false));
+        filterSelect.addEventListener('change', () => {
+            offset = 0;
+            fetchBatch(true);
+        });
         function openInternal(cb){ onSelect = cb; resetState(); show(); fetchBatch(true); }
-        function openPicker(cb, options){ options = options || {}; if (!options.manual) return; if (!options.sourceButton) return; openInternal(cb); }
+        function openPicker(cb, options){
+            options = options || {};
+            if (!options.manual) return;
+            if (!options.sourceButton) return;
+            // Set filter if provided
+            if (options.defaultFilter) {
+                filterSelect.value = options.defaultFilter;
+                currentFilter = options.defaultFilter;
+            }
+            openInternal(cb);
+        }
         window.CMSImageAssetPicker = { openPicker };
     }
 

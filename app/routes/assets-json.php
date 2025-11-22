@@ -11,6 +11,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $q = $_GET['q'] ?? '';
 $dir = $_GET['dir'] ?? '';
+$filter = $_GET['filter'] ?? 'all'; // all, images, other
 // normalize dir
 $dir = trim(str_replace(['..','\\'],['','/'],$dir),'/');
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
@@ -37,14 +38,14 @@ if (is_dir($basePath)) {
 $resultAssets = [];
 $total = 0; $mode = '';
 if ($q !== '') {
-    // search across all directories
-    $search = $db->searchAssets($q, $limit, $offset);
+    // search across all directories with filter
+    $search = $db->searchAssets($q, $limit, $offset, $filter);
     $resultAssets = $search['items'];
     $total = $search['total'];
     $mode = 'search';
 } else {
-    // paged assets for current dir
-    $paged = $db->getAssetsPaged($dir, $limit, $offset);
+    // paged assets for current dir with filter
+    $paged = $db->getAssetsPaged($dir, $limit, $offset, $filter);
     $resultAssets = $paged['items'];
     $total = $paged['total'];
     $mode = 'directory';
