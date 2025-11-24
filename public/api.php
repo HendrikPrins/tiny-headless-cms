@@ -38,6 +38,7 @@ try {
             $fields = array_values(array_unique(array_merge($fields, array_keys($extraLocales))));
         }
         $filter = parseFilterParameter();
+        $sort = parseSortParameter();
         $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
         $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
@@ -45,7 +46,7 @@ try {
         if ($limit > 1000) $limit = 1000;
         if ($offset < 0) $offset = 0;
 
-        $data = $db->getCollectionByName($collectionName, $locales, $limit, $offset, $extraLocales, $fields, $filter);
+        $data = $db->getCollectionByName($collectionName, $locales, $limit, $offset, $extraLocales, $fields, $filter, $sort);
         $total = $db->getCollectionTotalCount($collectionName, $filter);
 
         sendResponse([
@@ -222,6 +223,40 @@ function parseFilterParameter(): ?array
         'field' => $field,
         'value' => $value,
         'locale' => $locale !== '' ? $locale : null,
+    ];
+}
+
+/**
+ * Parse sort options for collections.
+ *
+ * Supported syntaxes:
+ *   sort[field]=title&sort[direction]=asc
+ *   sort[field]=id&sort[direction]=desc
+ *
+ * Returns:
+ *   [ 'field' => 'title', 'direction' => 'asc'|'desc' ]
+ * or null if not specified/invalid.
+ */
+function parseSortParameter(): ?array
+{
+    if (!isset($_GET['sort']) || !is_array($_GET['sort'])) {
+        return null;
+    }
+
+    $field = isset($_GET['sort']['field']) ? trim((string)$_GET['sort']['field']) : '';
+    $dir   = isset($_GET['sort']['direction']) ? strtolower(trim((string)$_GET['sort']['direction'])) : 'asc';
+
+    if ($field === '') {
+        return null;
+    }
+
+    if ($dir !== 'asc' && $dir !== 'desc') {
+        $dir = 'asc';
+    }
+
+    return [
+        'field' => $field,
+        'direction' => $dir,
     ];
 }
 

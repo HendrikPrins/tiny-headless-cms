@@ -85,6 +85,17 @@ api.php?collection=news&fields=title,slug
 ### extraLocales
 api.php?collection=news&locale=nl&extraLocales[slug]=*
 
+### filter
+Supports a single equals filter (in specific locale)
+api.php?collection=news&filter[field]=slug&filter[locale]=nl&filter[value]=test
+
+### sort
+Sort collections by id or a field value (in a specific locale). Defaults to newest first.
+- By id descending:
+  - `api.php?collection=news&sort[field]=id&sort[direction]=desc`
+- By title ascending in `nl`:
+  - `api.php?collection=news&locale=nl&sort[field]=title&sort[direction]=asc`
+
 ### Locale shaping
 
 The shape of localized fields depends on how many locales you request:

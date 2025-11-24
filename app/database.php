@@ -413,7 +413,7 @@ class Database {
      * @param int $offset Number of entries to skip
      * @return array Array of entries
      */
-    public function getCollectionByName(string $name, ?array $locales = null, int $limit = 100, int $offset = 0, ?array $extraLocales = null, ?array $fieldFilter = null, ?array $valueFilter = null): array
+    public function getCollectionByName(string $name, ?array $locales = null, int $limit = 100, int $offset = 0, ?array $extraLocales = null, ?array $fieldFilter = null, ?array $valueFilter = null, ?array $sort = null): array
     {
         // Get content type
         $stmt = $this->connection->prepare("SELECT id, name FROM content_types WHERE name = :name AND is_singleton = 0");
@@ -436,25 +436,61 @@ class Database {
             $filterLocale = $this->determineFilterLocale($contentType['id'], $filterFieldId, $valueFilter['locale'], $locales);
         }
 
-        // Get entries with optional filter
-        if ($filterFieldId !== null) {
+        // Optional sort: by id or by field value
+        $orderSql = "e.id DESC"; // default
+        $sortFieldId = null;
+        $sortLocale  = null;
+        if ($sort !== null) {
+            if ($sort['field'] === 'id') {
+                $orderSql = 'e.id ' . strtoupper($sort['direction']);
+            } else {
+                $sortFieldId = $this->resolveFieldIdForContentType($contentType['id'], $sort['field']);
+                if ($sortFieldId !== null) {
+                    $sortLocale = $this->determineFilterLocale($contentType['id'], $sortFieldId, null, $locales);
+                }
+            }
+        }
+
+        // Build base query with optional filter and optional sort field join
+        if ($filterFieldId !== null || $sortFieldId !== null) {
+            $joins = '';
+            $conds = 'e.content_type_id = :ctid';
+
+            if ($filterFieldId !== null) {
+                $joins .= ' JOIN field_values fv_filter ON fv_filter.entry_id = e.id AND fv_filter.field_id = :fid AND fv_filter.locale = :floc AND fv_filter.value = :fval';
+            }
+
+            if ($sortFieldId !== null) {
+                $joins .= ' LEFT JOIN field_values fv_sort ON fv_sort.entry_id = e.id AND fv_sort.field_id = :sfid AND fv_sort.locale = :sloc';
+                $orderSql = 'fv_sort.value ' . strtoupper($sort['direction']) . ', e.id DESC';
+            }
+
             $sql = "SELECT DISTINCT e.id
                     FROM entries e
-                    JOIN field_values fv ON fv.entry_id = e.id AND fv.field_id = :fid AND fv.locale = :floc AND fv.value = :fval
-                    WHERE e.content_type_id = :ctid
-                    ORDER BY e.id DESC
+                    $joins
+                    WHERE $conds
+                    ORDER BY $orderSql
                     LIMIT :limit OFFSET :offset";
             $stmt = $this->connection->prepare($sql);
-            $stmt->bindParam(':fid', $filterFieldId, PDO::PARAM_INT);
-            $stmt->bindParam(':floc', $filterLocale);
-            $stmt->bindParam(':fval', $valueFilter['value']);
             $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
-            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            if ($filterFieldId !== null) {
+                $stmt->bindParam(':fid',  $filterFieldId,   PDO::PARAM_INT);
+                $stmt->bindParam(':floc', $filterLocale);
+                $stmt->bindParam(':fval', $valueFilter['value']);
+            }
+            if ($sortFieldId !== null) {
+                $stmt->bindParam(':sfid', $sortFieldId, PDO::PARAM_INT);
+                $stmt->bindParam(':sloc', $sortLocale);
+            }
+            $stmt->bindParam(':limit',  $limit,  PDO::PARAM_INT);
             $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
             $stmt->execute();
             $entries = $stmt->fetchAll();
         } else {
-            $stmt = $this->connection->prepare("SELECT id FROM entries WHERE content_type_id = :ctid ORDER BY id DESC LIMIT :limit OFFSET :offset");
+            // No filter or field-based sort: simple query on entries
+            $sql = "SELECT id FROM entries WHERE content_type_id = :ctid ORDER BY e.id DESC LIMIT :limit OFFSET :offset";
+            $sql = "SELECT id FROM entries WHERE content_type_id = :ctid ORDER BY id DESC LIMIT :limit OFFSET :offset";
+            $stmt = $this->connection->prepare($sql);
             $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
             $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
             $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
