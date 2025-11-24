@@ -13,7 +13,8 @@ try {
         }
 
         $locales = parseLocaleParameter();
-        $data = $db->getSingletonByName($singletonName, $locales);
+        $extraLocales = parseExtraLocalesPerField();
+        $data = $db->getSingletonByName($singletonName, $locales, $extraLocales);
 
         if ($data === null) {
             sendError(404, 'Singleton not found');
@@ -30,6 +31,7 @@ try {
         }
 
         $locales = parseLocaleParameter();
+        $extraLocales = parseExtraLocalesPerField();
         $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
         $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
@@ -37,7 +39,7 @@ try {
         if ($limit > 1000) $limit = 1000;
         if ($offset < 0) $offset = 0;
 
-        $data = $db->getCollectionByName($collectionName, $locales, $limit, $offset);
+        $data = $db->getCollectionByName($collectionName, $locales, $limit, $offset, $extraLocales);
         $total = $db->getCollectionTotalCount($collectionName);
 
         sendResponse([
@@ -83,6 +85,61 @@ function parseLocaleParameter()
     }
 
     return [$locale];
+}
+
+/**
+ * Parse per-field extra locale requests from the query string.
+ *
+ * Supported syntaxes:
+ *   extraLocales[slug]=*               // all locales for field "slug"
+ *   extraLocales[title]=en,de          // specific locales (comma-separated)
+ *   extraLocales[title][]=en&extraLocales[title][]=de
+ *
+ * Returns an associative array:
+ *   [ 'slug' => '*', 'title' => ['en','de'] ]
+ * or null if nothing is specified.
+ */
+function parseExtraLocalesPerField(): ?array
+{
+    if (!isset($_GET['extraLocales']) || !is_array($_GET['extraLocales'])) {
+        return null;
+    }
+
+    $result = [];
+    foreach ($_GET['extraLocales'] as $field => $value) {
+        $field = trim((string)$field);
+        if ($field === '') {
+            continue;
+        }
+
+        if (is_array($value)) {
+            $locales = [];
+            foreach ($value as $loc) {
+                $loc = trim((string)$loc);
+                if ($loc !== '') {
+                    $locales[] = $loc;
+                }
+            }
+            if (!empty($locales)) {
+                $result[$field] = array_values(array_unique($locales));
+            }
+        } else {
+            $val = trim((string)$value);
+            if ($val === '') {
+                continue;
+            }
+            if ($val === '*') {
+                $result[$field] = '*';
+            } else {
+                $locales = array_filter(array_map('trim', explode(',', $val)), fn($x) => $x !== '');
+                if (!empty($locales)) {
+                    $result[$field] = array_values(array_unique($locales));
+                }
+            }
+        }
+    }
+
+    return empty($result) ? null : $result;
 }
 
 function sendResponse($data) {
