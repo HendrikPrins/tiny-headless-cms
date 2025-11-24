@@ -1,110 +1,62 @@
 <?php
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'httponly' => true,
+    'samesite' => 'Strict',
+]);
+
+session_start();
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 require __DIR__ . '/../app/config.php';
-$db = Database::getInstance();
 
-header('Content-Type: application/json');
+$isLoggedIn = isset($_SESSION['user_id']);
 
-try {
-    if (isset($_GET['singleton'])) {
-        $singletonName = trim($_GET['singleton']);
+$page = $_GET['page'] ?? 'dashboard';
+$routes = [
+    "dashboard",
+    "content-type",
+    "content-type-create",
+    "content-type-edit",
+    "content-entries",
+    "content-entry-edit",
+    "collections-create",
+    "collections-edit",
+    "assets",
+    "asset-upload",
+    "assets-json",
+    "settings",
+    "user-add",
+    "user-edit",
+];
 
-        if (empty($singletonName)) {
-            sendError(400, 'Singleton name is required');
-        }
+ob_start();
 
-        $locales = parseLocaleParameter();
-        $data = $db->getSingletonByName($singletonName, $locales);
-
-        if ($data === null) {
-            sendError(404, 'Singleton not found');
-        }
-
-        sendResponse(['data' => $data]);
-    }
-
-    if (isset($_GET['collection'])) {
-        $collectionName = trim($_GET['collection']);
-
-        if (empty($collectionName)) {
-            sendError(400, 'Collection name is required');
-        }
-
-        $locales = parseLocaleParameter();
-        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
-        $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
-
-        if ($limit < 1) $limit = 100;
-        if ($limit > 1000) $limit = 1000;
-        if ($offset < 0) $offset = 0;
-
-        $data = $db->getCollectionByName($collectionName, $locales, $limit, $offset);
-        $total = $db->getCollectionTotalCount($collectionName);
-
-        sendResponse([
-            'data' => $data,
-            'meta' => [
-                'total' => $total,
-                'limit' => $limit,
-                'offset' => $offset
-            ]
-        ]);
-    }
-
-    sendError(400, 'Invalid request', [
-        'singleton' => 'index.php?singleton=<name>&locale=<locale>',
-        'collection' => 'index.php?collection=<name>&locale=<locale>&limit=<limit>&offset=<offset>'
-    ]);
-} catch (Exception $e) {
-    sendError(500, 'Internal server error', null, $e->getMessage());
-}
-
-function parseLocaleParameter()
-{
-    if (!isset($_GET['locale'])) {
-        return null;
-    }
-
-    $locale = $_GET['locale'];
-
-    if (is_array($locale)) {
-        $locales = [];
-        foreach ($locale as $loc) {
-            $loc = trim($loc);
-            if (!empty($loc)) {
-                $locales[] = $loc;
-            }
-        }
-        return empty($locales) ? null : $locales;
-    }
-
-    $locale = trim($locale);
-    if (empty($locale)) {
-        return null;
-    }
-
-    return [$locale];
-}
-
-function sendResponse($data) {
-    http_response_code(200);
-    echo json_encode($data, JSON_PRETTY_PRINT);
+if (!Database::getInstance()->hasSchema()) {
+    include __DIR__ . '/../app/routes/noschema.php';
+} elseif (!Database::getInstance()->hasAdminUser()) {
+    include __DIR__ . '/../app/routes/register.php';
+} elseif ($page == 'logout') {
+    session_destroy();
+    header('Location: index.php', true, 303);
     exit;
+} elseif (!$isLoggedIn) {
+    include __DIR__ . '/../app/routes/login.php';
+} elseif (in_array($page, $routes)) {
+    include __DIR__ . "/../app/routes/{$page}.php";
+} else {
+    http_response_code(404);
+    $title = "404 Not Found";
+    echo "<h1>Page not found</h1>";
 }
-
-function sendError($code, $message, $info = null, $debug = null) {
-    http_response_code($code);
-    $error = [
-        'error' => [
-            'code' => $code,
-            'message' => $message
-        ]
-    ];
-    if ($info !== null) {
-        $error['error']['info'] = $info;
-    }
-    if ($debug !== null) {
-        $error['error']['debug'] = $debug;
-    }
-    echo json_encode($error, JSON_PRETTY_PRINT);
-    exit;
+$body = ob_get_clean();
+if (isset($useFullTemplate) && $useFullTemplate){
+    require __DIR__ . '/../app/template-full.php';
+} else {
+    require __DIR__ . '/../app/template.php';
 }

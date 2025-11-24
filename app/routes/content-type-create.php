@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $id = Database::getInstance()->createContentType($name, $is_singleton);
             while (ob_get_level() > 0) { ob_end_clean(); }
-            header('Location: admin.php?page=content-type-edit&id=' . $id, true, 303);
+            header('Location: index.php?page=content-type-edit&id=' . $id, true, 303);
             exit;
         } catch (InvalidArgumentException $e) {
             $error = $e->getMessage();

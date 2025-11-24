@@ -15,8 +15,8 @@
 3. **Copy `.env.example` → `.env`** and edit with your database credentials.
 4. **Create database** and run the SQL schema in `/sql/schema.sql`.
 5. **Ensure `/uploads` is writable** (`chmod 755 uploads`).
-6. Visit `/admin.php` to log in and manage content.
-7. Access API via `/index.php?endpoint=content` or query the database directly from your application.
+6. Visit `/` or `/index.php` to log in and manage content.
+7. Access API via `/api.php?endpoint=content` or query the database directly from your application.
 
 ### Security
 
@@ -123,7 +123,7 @@ Potential enhancements:
 - Drag-drop reordering in picker.
 
 ### Development Notes
-- JSON endpoint: `admin.php?page=assets-json` with `q`, `limit`, `offset` params.
+- JSON endpoint: `index.php?page=assets-json` with `q`, `limit`, `offset` params.
 - Requires authentication (same session as admin panel).
 - JS Tool file: `public/assets/editorjs-image-tool.js`.
 - Styles appended in `public/assets/style.css`.

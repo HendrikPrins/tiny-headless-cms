@@ -14,14 +14,14 @@ Your role: <b><?php echo htmlspecialchars($_SESSION['user_role']); ?></b><br>
 <script>
 document.getElementById('logout-btn').addEventListener('click', function() {
     if (confirm('Are you sure you want to log out?')) {
-        window.location.href = 'admin.php?page=logout';
+        window.location.href = 'index.php?page=logout';
     }
 });
 </script>
 
 <h2>Users</h2>
 <div style="margin-bottom:12px;">
-    <a href="admin.php?page=user-add" class="btn-primary">Create User</a>
+    <a href="index.php?page=user-add" class="btn-primary">Create User</a>
 </div>
 <?php if (empty($users)): ?>
     <p>No users found.</p>
@@ -48,9 +48,9 @@ document.getElementById('logout-btn').addEventListener('click', function() {
                 </td>
                 <td><?= htmlspecialchars($u['role'], ENT_QUOTES, 'UTF-8') ?></td>
                 <td class="table-nowrap">
-                    <a href="admin.php?page=user-edit&id=<?= (int)$u['id'] ?>" class="btn btn-icon btn-primary" title="Edit"><?=ICON_PENCIL?></a>
+                    <a href="index.php?page=user-edit&id=<?= (int)$u['id'] ?>" class="btn btn-icon btn-primary" title="Edit"><?=ICON_PENCIL?></a>
                     <?php if ((int)$u['id'] !== (int)$_SESSION['user_id']): ?>
-                    <form method="post" action="admin.php?page=user-edit&id=<?= (int)$u['id'] ?>" class="d-inline" onsubmit="return confirm('Delete this user? This cannot be undone.');">
+                    <form method="post" action="index.php?page=user-edit&id=<?= (int)$u['id'] ?>" class="d-inline" onsubmit="return confirm('Delete this user? This cannot be undone.');">
                         <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
                         <input type="hidden" name="action" value="delete">
                         <button type="submit" class="btn-icon btn-danger" title="Delete"><?=ICON_TRASH?></button>

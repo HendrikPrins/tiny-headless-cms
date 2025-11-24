@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         $entryId = (int)($_POST['entry_id'] ?? 0);
         if ($entryId > 0) {
             $db->deleteEntry($entryId);
-            header('Location: admin.php?page=content-entries&ct=' . $ctId, true, 303);
+            header('Location: index.php?page=content-entries&ct=' . $ctId, true, 303);
             exit;
         }
     }

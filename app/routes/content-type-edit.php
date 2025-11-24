@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 while (ob_get_level() > 0) {
                     ob_end_clean();
                 }
-                header('Location: admin.php?page=content-type', true, 303);
+                header('Location: index.php?page=content-type', true, 303);
                 exit;
             } catch (PDOException $e) {
                 $errors[] = 'Failed to delete content type.';
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 while (ob_get_level() > 0) {
                     ob_end_clean();
                 }
-                header('Location: admin.php?page=content-type-edit&id=' . $id, true, 303);
+                header('Location: index.php?page=content-type-edit&id=' . $id, true, 303);
                 exit;
             } catch (InvalidArgumentException $e) {
                 $errors[] = $e->getMessage();
@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     while (ob_get_level() > 0) {
                         ob_end_clean();
                     }
-                    header('Location: admin.php?page=content-type-edit&id=' . $id, true, 303);
+                    header('Location: index.php?page=content-type-edit&id=' . $id, true, 303);
                     exit;
                 } catch (InvalidArgumentException $e) {
                     $errors[] = $e->getMessage();

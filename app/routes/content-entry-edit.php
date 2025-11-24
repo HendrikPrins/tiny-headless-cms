@@ -56,9 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($ct['is_singleton']) {
-                header('Location: admin.php?page=content-type', true, 303);
+                header('Location: index.php?page=content-type', true, 303);
             } else {
-                header('Location: admin.php?page=content-entries&ct=' . $ctId, true, 303);
+                header('Location: index.php?page=content-entries&ct=' . $ctId, true, 303);
             }
             exit;
         }

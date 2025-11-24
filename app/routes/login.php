@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_username'] = $user['username'];
             $_SESSION['user_role'] = $user['role'];
-            header('Location: admin.php?page=dashboard', true, 303);
+            header('Location: index.php?page=dashboard', true, 303);
             exit;
         } else {
             $errors[] = 'Invalid username or password.';
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <div class="card">
-    <form method="post" action="admin.php?page=login" class="form-container">
+    <form method="post" action="index.php?page=login" class="form-container">
         <h1>Sign In</h1>
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>">
         <input type="text" name="username" placeholder="Username" required value="<?php echo htmlspecialchars($_POST['username'] ?? '', ENT_QUOTES); ?>">

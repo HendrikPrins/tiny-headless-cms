@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $db = Database::getInstance();
         if ($db->createUser($username, $password, 'admin')) {
-            header('Location: admin.php?page=login');
+            header('Location: index.php?page=login');
             exit;
         } else {
             $errors[] = "Failed to create admin user. Please try again.";
@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <div class="card">
-    <form method="post" action="admin.php" class="form-container">
+    <form method="post" action="index.php" class="form-container">
         <h1>Register</h1>
         <p>Please create your admin account via the form below. Any additional users can be created later from the dashboard.</p>
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>">

@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $db->deleteUser($user['id']);
                 while (ob_get_level() > 0) { ob_end_clean(); }
-                header('Location: admin.php?page=settings', true, 303);
+                header('Location: index.php?page=settings', true, 303);
                 exit;
             }
         } else { // update
@@ -78,7 +78,7 @@ $csrf = htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8');
     </label>
     <div class="form-buttons">
         <button type="submit" class="btn-primary">Save</button>
-        <a href="admin.php?page=settings" class="btn-secondary">Cancel</a>
+        <a href="index.php?page=settings" class="btn-secondary">Cancel</a>
     </div>
 </form>
 

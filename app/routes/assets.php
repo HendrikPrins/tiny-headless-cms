@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         unlink($filePath);
                     }
                     $db->deleteAsset($assetId);
-                    header('Location: admin.php?page=assets' . (isset($_GET['dir']) ? '&dir=' . urlencode($_GET['dir']) : ''), true, 303);
+                    header('Location: index.php?page=assets' . (isset($_GET['dir']) ? '&dir=' . urlencode($_GET['dir']) : ''), true, 303);
                     exit;
                 }
             }
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (file_exists($oldPath) && rename($oldPath, $newPath)) {
                         $db->updateAssetPath($assetId, $relativePath, $newDirectory);
 
-                        header('Location: admin.php?page=assets' . (!empty($newDirectory) ? '&dir=' . urlencode($newDirectory) : ''), true, 303);
+                        header('Location: index.php?page=assets' . (!empty($newDirectory) ? '&dir=' . urlencode($newDirectory) : ''), true, 303);
                         exit;
                     }
                 }
@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!@mkdir($fullPathAbs, 0755, true)) {
                         echo '<div class="alert alert-danger">Failed to create directory.</div>';
                     } else {
-                        header('Location: admin.php?page=assets&dir=' . urlencode($fullPathRel), true, 303);
+                        header('Location: index.php?page=assets&dir=' . urlencode($fullPathRel), true, 303);
                         exit;
                     }
                 }
@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     if (@rename($oldAbs,$newAbs)) {
                         try { $db->renameAssetDirectory($current,$newFull); } catch (Exception $e) { echo '<div class="alert alert-danger">DB update failed: '.htmlspecialchars($e->getMessage(),ENT_QUOTES).'</div>'; }
-                        header('Location: admin.php?page=assets&dir=' . urlencode($newFull), true, 303);
+                        header('Location: index.php?page=assets&dir=' . urlencode($newFull), true, 303);
                         exit;
                     } else {
                         echo '<div class="alert alert-danger">Failed to rename directory.</div>';
@@ -438,7 +438,7 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
                 formData.append('directory', currentDirectory);
                 formData.append('csrf_token', csrfToken);
 
-                const response = await fetch('admin.php?page=asset-upload', {
+                const response = await fetch('index.php?page=asset-upload', {
                     method: 'POST',
                     body: formData
                 });

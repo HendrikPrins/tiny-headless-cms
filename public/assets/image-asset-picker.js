@@ -82,7 +82,7 @@
             if (offset === 0) {
                 resultsEl.innerHTML = '<div class="iap-loading">Loading...</div>';
             }
-            const url = `admin.php?page=assets-json&limit=${limit}&offset=${offset}&dir=${encodeURIComponent(currentDir)}&q=${encodeURIComponent(q)}&filter=${encodeURIComponent(filter)}`;
+            const url = `index.php?page=assets-json&limit=${limit}&offset=${offset}&dir=${encodeURIComponent(currentDir)}&q=${encodeURIComponent(q)}&filter=${encodeURIComponent(filter)}`;
             fetch(url).then(r => r.json()).then(d => {
                 loading = false;
                 currentQuery = q;

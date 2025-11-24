@@ -12,9 +12,9 @@
     <div class="content">
         <span class="project-title">Tiny Headless CMS</span>
         <nav>
-            <a href="admin.php?page=content-type">Content Types</a>
-            <a href="admin.php?page=assets">Assets</a>
-            <a href="admin.php?page=settings">Settings</a>
+            <a href="index.php?page=content-type">Content Types</a>
+            <a href="index.php?page=assets">Assets</a>
+            <a href="index.php?page=settings">Settings</a>
         </nav>
     </div>
 </header>
