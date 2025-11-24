@@ -83,6 +83,7 @@ foreach (FieldRegistry::getAll() as $ft) {
     echo $ft->renderAdminImports();
 }
 ?>
+<script src="/assets/image-asset-picker.js"></script>
 <div class="content-header">
     <nav class="breadcrumb" aria-label="breadcrumb">
         <ol>
