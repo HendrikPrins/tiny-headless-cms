@@ -26,6 +26,7 @@
         <div class="directory-grid" id="iap-dir-grid"></div>
         <div class="iap-results" id="iap-results" aria-live="polite"></div>
         <div class="iap-footer">
+          <button type="button" id="iap-confirm" class="btn-primary" hidden>Use Selected</button>
           <button type="button" id="iap-load-more" class="btn-secondary" hidden>Load More</button>
         </div>
       </div>`;
@@ -41,6 +42,7 @@
         const searchInput = modal.querySelector('#iap-search');
         const searchBtn = modal.querySelector('#iap-search-btn');
         const loadMoreBtn = modal.querySelector('#iap-load-more');
+        const confirmBtn = modal.querySelector('#iap-confirm');
         const filterSelect = modal.querySelector('#iap-filter');
         let offset = 0, limit = 40, total = 0, currentDir = '', currentQuery = '', currentFilter = 'all', loading = false, onSelect = null, multiple = false;
         let lastItems = [];
@@ -55,6 +57,7 @@
             dirGridEl.innerHTML = '';
             breadcrumbEl.innerHTML = '';
             loadMoreBtn.hidden = true;
+            confirmBtn.hidden = true;
             lastItems = [];
         }
 
@@ -233,6 +236,29 @@
             offset = 0;
             fetchBatch(true);
         });
+
+        confirmBtn.addEventListener('click', () => {
+            if (!multiple || !onSelect) {
+                close();
+                return;
+            }
+            try {
+                const selectedEls = resultsEl.querySelectorAll('.iap-item-selected');
+                const selected = [];
+                selectedEls.forEach(el => {
+                    const idx = parseInt(el.dataset.index, 10);
+                    if (!Number.isNaN(idx) && idx >= 0 && idx < lastItems.length) {
+                        selected.push(lastItems[idx]);
+                    }
+                });
+                onSelect(selected);
+            } catch (e) {
+                console.error('Image multi-select error', e);
+            } finally {
+                close();
+            }
+        });
+
         function openInternal(cb){ onSelect = cb; resetState(); show(); fetchBatch(true); }
         function openPicker(cb, options){
             options = options || {};
@@ -246,27 +272,11 @@
             if (multiple) {
                 onSelect = cb;
                 resetState();
+                confirmBtn.hidden = false;
                 show();
                 fetchBatch(true);
-                modal.addEventListener('click', function handleClose(e){
-                    if (!e.target.matches('[data-iap-close]')) return;
-                    modal.removeEventListener('click', handleClose);
-                    try {
-                        if (!onSelect) return;
-                        const selectedEls = resultsEl.querySelectorAll('.iap-item-selected');
-                        const selected = [];
-                        selectedEls.forEach(el => {
-                            const idx = parseInt(el.dataset.index, 10);
-                            if (!Number.isNaN(idx) && idx >= 0 && idx < lastItems.length) {
-                                selected.push(lastItems[idx]);
-                            }
-                        });
-                        cb(selected);
-                    } finally {
-                        close();
-                    }
-                });
             } else {
+                confirmBtn.hidden = true;
                 openInternal(cb);
             }
         }

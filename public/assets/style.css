@@ -897,3 +897,7 @@ body.iap-open {
         height: 70px;
     }
 }
+
+[hidden] {
+    display: none !important;
+}
