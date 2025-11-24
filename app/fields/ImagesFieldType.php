@@ -5,6 +5,10 @@ class ImagesFieldType extends FieldType {
         parent::__construct('images');
     }
 
+    public function shouldWrapWithLabel(): bool {
+        return false;
+    }
+
     public function renderAdminForm(string $fieldName, mixed $value): string {
         // Multiple images with alt and ordering, filtered to images
         return $this->renderMultiAssetAdmin(

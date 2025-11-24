@@ -114,23 +114,21 @@ foreach (FieldRegistry::getAll() as $ft) {
 
     <?php foreach ($fields as $f): $fid=(int)$f['id']; $name = htmlspecialchars($f['name'], ENT_QUOTES, 'UTF-8'); $ft=$f['field_type']; $isTranslatable=(bool)$f['is_translatable']; ?>
         <?php if ($isTranslatable): ?>
-            <?php foreach ($locales as $loc): $val = $valuesByLocale[$loc][$fid] ?? ''; $inputName='field_'.$fid.'_'.$loc; ?>
-                <label class="field" data-locale-field="<?= htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ?>">
+            <?php foreach ($locales as $loc): $val = $valuesByLocale[$loc][$fid] ?? ''; $inputName='field_'.$fid.'_'.$loc; $fieldType = FieldRegistry::get($ft); $wrap = $fieldType->shouldWrapWithLabel(); ?>
+                <<?= $wrap ? 'label' : 'div' ?> class="field" data-locale-field="<?= htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ?>">
                     <div class="label"><span><?= $name ?></span><?= $f['is_required'] ? ' *' : '' ?> <span class="field-locale">[<?= strtoupper(htmlspecialchars($loc, ENT_QUOTES, 'UTF-8')) ?>]</span><span><?=$ft?></span></div>
                     <?php
-                    $fieldType = FieldRegistry::get($ft);
                     echo $fieldType->renderAdminForm(htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8'), $val);
                     ?>
-                </label>
+                </<?= $wrap ? 'label' : 'div' ?>>
             <?php endforeach; ?>
-        <?php else: $val = $valuesByLocale[''][$fid] ?? ''; $inputName='field_'.$fid; ?>
-            <label class="field" data-locale-field="__global">
+        <?php else: $val = $valuesByLocale[''][$fid] ?? ''; $inputName='field_'.$fid; $fieldType = FieldRegistry::get($ft); $wrap = $fieldType->shouldWrapWithLabel(); ?>
+            <<?= $wrap ? 'label' : 'div' ?> class="field" data-locale-field="__global">
                 <div class="label"><span><?= $name ?></span><?= $f['is_required'] ? ' *' : '' ?><span><?=$ft?></span></div>
                 <?php
-                $fieldType = FieldRegistry::get($ft);
                 echo $fieldType->renderAdminForm(htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8'), $val);
                 ?>
-            </label>
+            </<?= $wrap ? 'label' : 'div' ?>>
         <?php endif; ?>
     <?php endforeach; ?>
 

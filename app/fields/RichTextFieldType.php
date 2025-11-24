@@ -105,6 +105,10 @@ class RichTextFieldType extends FieldType {
         return ob_get_clean();
     }
 
+    public function shouldWrapWithLabel(): bool {
+        return false;
+    }
+
     public function renderPreview(string $fieldName, mixed $value): string {
         // Build HTML preview including imageAsset figures
         $blocks = [];

@@ -5,6 +5,10 @@ class ImageFieldType extends FieldType {
         parent::__construct('image');
     }
 
+    public function shouldWrapWithLabel(): bool {
+        return false;
+    }
+
     public function renderAdminForm(string $fieldName, mixed $value): string {
         // Single image with preview and alt, filtered to images
         return $this->renderSingleAssetAdmin(

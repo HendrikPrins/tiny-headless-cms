@@ -5,6 +5,10 @@ class AssetsFieldType extends FieldType {
         parent::__construct('assets');
     }
 
+    public function shouldWrapWithLabel(): bool {
+        return false;
+    }
+
     public function renderAdminForm(string $fieldName, mixed $value): string {
         // Multiple generic assets, ordered, no alt
         return $this->renderMultiAssetAdmin(
