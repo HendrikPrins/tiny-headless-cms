@@ -42,7 +42,8 @@
         const searchBtn = modal.querySelector('#iap-search-btn');
         const loadMoreBtn = modal.querySelector('#iap-load-more');
         const filterSelect = modal.querySelector('#iap-filter');
-        let offset = 0, limit = 40, total = 0, currentDir = '', currentQuery = '', currentFilter = 'all', loading = false, onSelect = null;
+        let offset = 0, limit = 40, total = 0, currentDir = '', currentQuery = '', currentFilter = 'all', loading = false, onSelect = null, multiple = false;
+        let lastItems = [];
 
         function resetState() {
             offset = 0;
@@ -54,7 +55,7 @@
             dirGridEl.innerHTML = '';
             breadcrumbEl.innerHTML = '';
             loadMoreBtn.hidden = true;
-            // Don't reset filter - it may be set by caller
+            lastItems = [];
         }
 
         function show() {
@@ -78,6 +79,7 @@
                 resultsEl.innerHTML = '';
                 dirGridEl.innerHTML = '';
                 breadcrumbEl.innerHTML = '';
+                lastItems = [];
             }
             if (offset === 0) {
                 resultsEl.innerHTML = '<div class="iap-loading">Loading...</div>';
@@ -97,6 +99,7 @@
             if (initial) {
                 dirGridEl.innerHTML = '';
                 resultsEl.innerHTML = '';
+                lastItems = [];
             }
             renderBreadcrumb(d.directory);
             if (currentQuery === '') {
@@ -152,7 +155,10 @@
         }
 
         function renderItems(items, replace) {
-            if (replace) resultsEl.innerHTML = '';
+            if (replace) {
+                resultsEl.innerHTML = '';
+                lastItems = [];
+            }
             if (!items || !items.length) {
                 if (offset === 0) {
                     resultsEl.innerHTML = '<div class="iap-empty">No assets found.</div>';
@@ -160,25 +166,34 @@
                 return;
             }
             items.forEach(item => {
+                const index = lastItems.length;
+                lastItems.push(item);
                 const div = document.createElement('div');
                 div.className = 'iap-item';
+                div.dataset.index = String(index);
                 const isImage = item.mime && item.mime.startsWith('image/');
                 const thumbHtml = isImage
                     ? `<img src='${item.url}' alt='' class='asset-thumb'>`
                     : '<span class="file-icon">📄</span>';
                 div.innerHTML = `<div class="iap-thumb">${thumbHtml}</div><div class="iap-meta"><div class="iap-fn">${escapeHtml(item.filename)}</div><div class="iap-size">${formatSize(item.size)}</div></div>`;
-                div.addEventListener('click', () => {
-                    try {
-                        if (onSelect) {
-                            onSelect(item);
+                if (multiple) {
+                    div.addEventListener('click', () => {
+                        div.classList.toggle('iap-item-selected');
+                    });
+                } else {
+                    div.addEventListener('click', () => {
+                        try {
+                            if (onSelect) {
+                                onSelect(item);
+                            }
+                            window.dispatchEvent(new CustomEvent('image-asset-selected', {detail: item}));
+                        } catch (e) {
+                            console.error('Image select error', e);
+                        } finally {
+                            close();
                         }
-                        window.dispatchEvent(new CustomEvent('image-asset-selected', {detail: item}));
-                    } catch (e) {
-                        console.error('Image select error', e);
-                    } finally {
-                        close();
-                    }
-                });
+                    });
+                }
                 resultsEl.appendChild(div);
             });
         }
@@ -223,12 +238,37 @@
             options = options || {};
             if (!options.manual) return;
             if (!options.sourceButton) return;
-            // Set filter if provided
             if (options.defaultFilter) {
                 filterSelect.value = options.defaultFilter;
                 currentFilter = options.defaultFilter;
             }
-            openInternal(cb);
+            multiple = !!options.multiple;
+            if (multiple) {
+                onSelect = cb;
+                resetState();
+                show();
+                fetchBatch(true);
+                modal.addEventListener('click', function handleClose(e){
+                    if (!e.target.matches('[data-iap-close]')) return;
+                    modal.removeEventListener('click', handleClose);
+                    try {
+                        if (!onSelect) return;
+                        const selectedEls = resultsEl.querySelectorAll('.iap-item-selected');
+                        const selected = [];
+                        selectedEls.forEach(el => {
+                            const idx = parseInt(el.dataset.index, 10);
+                            if (!Number.isNaN(idx) && idx >= 0 && idx < lastItems.length) {
+                                selected.push(lastItems[idx]);
+                            }
+                        });
+                        cb(selected);
+                    } finally {
+                        close();
+                    }
+                });
+            } else {
+                openInternal(cb);
+            }
         }
         window.CMSImageAssetPicker = { openPicker };
     }

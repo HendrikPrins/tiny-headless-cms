@@ -15,6 +15,7 @@
     --color-primary: #186997;
     --color-primary-shade: #14557a;
     --color-primary-contrast: #fff;
+    --color-primary-bg: #e1edf3;
     --color-success: #28a745;
     --color-success-shade: #1e7e34;
     --color-success-contrast: #fff;
@@ -670,6 +671,11 @@ nav.breadcrumb ol li + li::before {
 .iap-item:hover {
     border-color: #999;
     box-shadow: 0 0 0 2px #f0f0f0;
+}
+
+.iap-item.iap-item-selected, .iap-item.iap-item-selected:hover {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-bg);
 }
 
 .iap-thumb {

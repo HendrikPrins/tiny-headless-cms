@@ -222,4 +222,3 @@ class ImageFieldType extends FieldType {
         return '<img src="' . $url . '" alt="' . $alt . '" style="max-width:80px; max-height:80px; object-fit:cover; border-radius:3px;">';
     }
 }
-
