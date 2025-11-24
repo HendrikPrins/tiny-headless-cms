@@ -16,7 +16,7 @@
 4. **Create database** and run the SQL schema in `/sql/schema.sql`.
 5. **Ensure `/uploads` is writable** (`chmod 755 uploads`).
 6. Visit `/` or `/index.php` to log in and manage content.
-7. Access API via `/api.php?endpoint=content` or query the database directly from your application.
+7. Access API via `/api.php` (see options below) or query the database directly from your application.
 
 ### Security
 
@@ -73,11 +73,19 @@ Use cases for singletons include:
 
 ## HTTP API
 
-index.php?singleton=book
-index.php?singleton=book&locale=en
-index.php?singleton=book&locale[0]=en&locale[1]=nl
-index.php?collection=books
-index.php?collection=books&locale=en&limit=10&offset=20
+api.php?singleton=book
+api.php?singleton=book&locale=en
+api.php?singleton=book&locale[0]=en&locale[1]=nl
+api.php?collection=books
+api.php?collection=books&locale=en&limit=10&offset=20
+
+### fields
+api.php?collection=news&fields=title,slug
+
+### extraLocales
+api.php?collection=news&locale=nl&extraLocales[slug]=*
+
+
 
 ## Rich Text Image Asset Block
 A new custom Editor.js tool `imageAsset` lets you insert images already uploaded to the CMS asset library.
@@ -103,27 +111,3 @@ Each image block is stored as:
 }
 ```
 
-### API / Rendering
-Currently blocks remain raw Editor.js output. You can render `imageAsset` blocks server-side as:
-```
-<figure class="cms-image"><img src="/uploads/..." alt="..."> <figcaption>...</figcaption></figure>
-```
-If an asset is missing, render a placeholder figure.
-
-### Edge Cases
-- No assets: picker shows "No assets found".
-- Large list: pagination via Load More button (40 items per batch).
-- Deleted asset: existing blocks keep URL; you may add validation later.
-
-### Extensibility
-Potential enhancements:
-- Inline resizing / alignment controls.
-- Image optimization / responsive srcset generation.
-- Cropping / variants.
-- Drag-drop reordering in picker.
-
-### Development Notes
-- JSON endpoint: `index.php?page=assets-json` with `q`, `limit`, `offset` params.
-- Requires authentication (same session as admin panel).
-- JS Tool file: `public/assets/editorjs-image-tool.js`.
-- Styles appended in `public/assets/style.css`.
