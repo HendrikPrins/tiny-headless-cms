@@ -35,8 +35,9 @@ try {
         $extraLocales = parseExtraLocalesPerField();
         $fields = parseFieldsParameter();
         if (is_array($fields) && is_array($extraLocales) && count($fields) > 0 && count($extraLocales) > 0) {
-            $fields = array_merge($fields, array_keys($extraLocales));
+            $fields = array_values(array_unique(array_merge($fields, array_keys($extraLocales))));
         }
+        $filter = parseFilterParameter();
         $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
         $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
@@ -44,8 +45,8 @@ try {
         if ($limit > 1000) $limit = 1000;
         if ($offset < 0) $offset = 0;
 
-        $data = $db->getCollectionByName($collectionName, $locales, $limit, $offset, $extraLocales, $fields);
-        $total = $db->getCollectionTotalCount($collectionName);
+        $data = $db->getCollectionByName($collectionName, $locales, $limit, $offset, $extraLocales, $fields, $filter);
+        $total = $db->getCollectionTotalCount($collectionName, $filter);
 
         sendResponse([
             'data' => $data,
@@ -190,6 +191,38 @@ function parseFieldsParameter(): ?array
     }
 
     return array_values(array_unique($names));
+}
+
+/**
+ * Parse a simple field filter for collections.
+ *
+ * Supported syntaxes (field is required, locale optional):
+ *   filter[field]=title&filter[value]=Hello
+ *   filter[field]=title&filter[locale]=en&filter[value]=Hello
+ *
+ * Returns an associative array:
+ *   [ 'field' => 'title', 'value' => 'Hello', 'locale' => 'en'|null ]
+ * or null if no valid filter is present.
+ */
+function parseFilterParameter(): ?array
+{
+    if (!isset($_GET['filter']) || !is_array($_GET['filter'])) {
+        return null;
+    }
+
+    $field = isset($_GET['filter']['field']) ? trim((string)$_GET['filter']['field']) : '';
+    $value = isset($_GET['filter']['value']) ? (string)$_GET['filter']['value'] : '';
+    $locale = isset($_GET['filter']['locale']) ? trim((string)$_GET['filter']['locale']) : null;
+
+    if ($field === '' || $value === '') {
+        return null;
+    }
+
+    return [
+        'field' => $field,
+        'value' => $value,
+        'locale' => $locale !== '' ? $locale : null,
+    ];
 }
 
 function sendResponse($data) {

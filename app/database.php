@@ -413,7 +413,7 @@ class Database {
      * @param int $offset Number of entries to skip
      * @return array Array of entries
      */
-    public function getCollectionByName(string $name, ?array $locales = null, int $limit = 100, int $offset = 0, ?array $extraLocales = null, ?array $fieldFilter = null): array
+    public function getCollectionByName(string $name, ?array $locales = null, int $limit = 100, int $offset = 0, ?array $extraLocales = null, ?array $fieldFilter = null, ?array $valueFilter = null): array
     {
         // Get content type
         $stmt = $this->connection->prepare("SELECT id, name FROM content_types WHERE name = :name AND is_singleton = 0");
@@ -425,13 +425,42 @@ class Database {
             return [];
         }
 
-        // Get entries with limit and offset
-        $stmt = $this->connection->prepare("SELECT id FROM entries WHERE content_type_id = :ctid ORDER BY id DESC LIMIT :limit OFFSET :offset");
-        $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
-        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
-        $stmt->execute();
-        $entries = $stmt->fetchAll();
+        // Optional value filter: resolve field id + locale
+        $filterFieldId = null;
+        $filterLocale = null;
+        if ($valueFilter !== null) {
+            $filterFieldId = $this->resolveFieldIdForContentType($contentType['id'], $valueFilter['field']);
+            if ($filterFieldId === null) {
+                return [];
+            }
+            $filterLocale = $this->determineFilterLocale($contentType['id'], $filterFieldId, $valueFilter['locale'], $locales);
+        }
+
+        // Get entries with optional filter
+        if ($filterFieldId !== null) {
+            $sql = "SELECT DISTINCT e.id
+                    FROM entries e
+                    JOIN field_values fv ON fv.entry_id = e.id AND fv.field_id = :fid AND fv.locale = :floc AND fv.value = :fval
+                    WHERE e.content_type_id = :ctid
+                    ORDER BY e.id DESC
+                    LIMIT :limit OFFSET :offset";
+            $stmt = $this->connection->prepare($sql);
+            $stmt->bindParam(':fid', $filterFieldId, PDO::PARAM_INT);
+            $stmt->bindParam(':floc', $filterLocale);
+            $stmt->bindParam(':fval', $valueFilter['value']);
+            $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            $entries = $stmt->fetchAll();
+        } else {
+            $stmt = $this->connection->prepare("SELECT id FROM entries WHERE content_type_id = :ctid ORDER BY id DESC LIMIT :limit OFFSET :offset");
+            $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            $entries = $stmt->fetchAll();
+        }
 
         if (empty($entries)) {
             return [];
@@ -459,7 +488,7 @@ class Database {
      * @param string $name Content type name
      * @return int Total number of entries
      */
-    public function getCollectionTotalCount(string $name): int
+    public function getCollectionTotalCount(string $name, ?array $valueFilter = null): int
     {
         $stmt = $this->connection->prepare("SELECT id FROM content_types WHERE name = :name AND is_singleton = 0");
         $stmt->bindParam(':name', $name);
@@ -468,11 +497,55 @@ class Database {
         if (!$contentType) {
             return 0;
         }
+
+        if ($valueFilter !== null) {
+            $fieldId = $this->resolveFieldIdForContentType($contentType['id'], $valueFilter['field']);
+            if ($fieldId === null) {
+                return 0;
+            }
+            // For count we treat locale like single-locale default: use provided locale or primary CMS_LOCALes[0]
+            $locale = $valueFilter['locale'] ?? (CMS_LOCALES[0] ?? '');
+            $sql = "SELECT COUNT(DISTINCT e.id) as total
+                    FROM entries e
+                    JOIN field_values fv ON fv.entry_id = e.id AND fv.field_id = :fid AND fv.locale = :loc AND fv.value = :fval
+                    WHERE e.content_type_id = :ctid";
+            $stmt = $this->connection->prepare($sql);
+            $stmt->bindParam(':fid', $fieldId, PDO::PARAM_INT);
+            $stmt->bindParam(':loc', $locale);
+            $stmt->bindParam(':fval', $valueFilter['value']);
+            $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
+            $stmt->execute();
+            $row = $stmt->fetch();
+            return $row ? (int)$row['total'] : 0;
+        }
+
         $stmt = $this->connection->prepare("SELECT COUNT(*) as total FROM entries WHERE content_type_id = :ctid");
         $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
         $stmt->execute();
         $row = $stmt->fetch();
         return $row ? (int)$row['total'] : 0;
+    }
+
+    private function resolveFieldIdForContentType(int $contentTypeId, string $fieldName): ?int
+    {
+        $stmt = $this->connection->prepare("SELECT id FROM fields WHERE content_type_id = :ctid AND name = :name LIMIT 1");
+        $stmt->bindParam(':ctid', $contentTypeId, PDO::PARAM_INT);
+        $stmt->bindParam(':name', $fieldName);
+        $stmt->execute();
+        $row = $stmt->fetch();
+        return $row ? (int)$row['id'] : null;
+    }
+
+    private function determineFilterLocale(int $contentTypeId, int $fieldId, ?string $overrideLocale, ?array $requestedLocales): string
+    {
+        if ($overrideLocale !== null && $overrideLocale !== '') {
+            return $overrideLocale;
+        }
+        if (is_array($requestedLocales) && count($requestedLocales) > 0) {
+            return (string)$requestedLocales[0];
+        }
+        // default to first configured CMS locale or empty string
+        return CMS_LOCALES[0] ?? '';
     }
 
     /**
