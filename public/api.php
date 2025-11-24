@@ -14,7 +14,8 @@ try {
 
         $locales = parseLocaleParameter();
         $extraLocales = parseExtraLocalesPerField();
-        $data = $db->getSingletonByName($singletonName, $locales, $extraLocales);
+        $fields = parseFieldsParameter();
+        $data = $db->getSingletonByName($singletonName, $locales, $extraLocales, $fields);
 
         if ($data === null) {
             sendError(404, 'Singleton not found');
@@ -32,6 +33,10 @@ try {
 
         $locales = parseLocaleParameter();
         $extraLocales = parseExtraLocalesPerField();
+        $fields = parseFieldsParameter();
+        if (is_array($fields) && is_array($extraLocales) && count($fields) > 0 && count($extraLocales) > 0) {
+            $fields = array_merge($fields, array_keys($extraLocales));
+        }
         $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
         $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
@@ -39,7 +44,7 @@ try {
         if ($limit > 1000) $limit = 1000;
         if ($offset < 0) $offset = 0;
 
-        $data = $db->getCollectionByName($collectionName, $locales, $limit, $offset, $extraLocales);
+        $data = $db->getCollectionByName($collectionName, $locales, $limit, $offset, $extraLocales, $fields);
         $total = $db->getCollectionTotalCount($collectionName);
 
         sendResponse([
@@ -53,8 +58,8 @@ try {
     }
 
     sendError(400, 'Invalid request', [
-        'singleton' => 'api.php?singleton=<name>&locale=<locale>',
-        'collection' => 'api.php?collection=<name>&locale=<locale>&limit=<limit>&offset=<offset>'
+        'singleton' => 'api.php?singleton=<name>&locale=<locale>&fields=field1,field2',
+        'collection' => 'api.php?collection=<name>&locale=<locale>&limit=<limit>&offset=<offset>&fields=field1,field2'
     ]);
 } catch (Exception $e) {
     sendError(500, 'Internal server error', null, $e->getMessage());
@@ -140,6 +145,51 @@ function parseExtraLocalesPerField(): ?array
     }
 
     return empty($result) ? null : $result;
+}
+
+/**
+ * Parse a standardized fields filter.
+ *
+ * Supported syntaxes:
+ *   fields=title,slug,date
+ *   fields[]=title&fields[]=slug
+ *
+ * Returns array of field names, or null to indicate no filtering.
+ */
+function parseFieldsParameter(): ?array
+{
+    if (!isset($_GET['fields'])) {
+        return null;
+    }
+
+    $raw = $_GET['fields'];
+
+    $names = [];
+    if (is_array($raw)) {
+        foreach ($raw as $v) {
+            $v = trim((string)$v);
+            if ($v !== '') {
+                $names[] = $v;
+            }
+        }
+    } else {
+        $raw = trim((string)$raw);
+        if ($raw === '') {
+            return null;
+        }
+        foreach (explode(',', $raw) as $v) {
+            $v = trim($v);
+            if ($v !== '') {
+                $names[] = $v;
+            }
+        }
+    }
+
+    if (empty($names)) {
+        return null;
+    }
+
+    return array_values(array_unique($names));
 }
 
 function sendResponse($data) {

@@ -369,7 +369,7 @@ class Database {
      * @param array|null $locales Array of locales to fetch, null for all
      * @return array|null Singleton data or null if not found
      */
-    public function getSingletonByName(string $name, ?array $locales = null, ?array $extraLocales = null): ?array
+    public function getSingletonByName(string $name, ?array $locales = null, ?array $extraLocales = null, ?array $fieldFilter = null): ?array
     {
         // Get content type
         $stmt = $this->connection->prepare("SELECT id, name FROM content_types WHERE name = :name AND is_singleton = 1");
@@ -393,10 +393,14 @@ class Database {
 
         // Get fields
         $fields = $this->getFieldsForContentType($contentType['id']);
+        if ($fieldFilter !== null) {
+            $fieldFilterSet = array_flip($fieldFilter);
+            $fields = array_values(array_filter($fields, static function($f) use ($fieldFilterSet) {
+                return isset($fieldFilterSet[$f['name']]);
+            }));
+        }
 
-        // Get field values
-        $data = $this->buildEntryData($entry['id'], $fields, $locales, $extraLocales);
-
+        $data = $this->buildEntryData($entry['id'], $fields, $locales, $extraLocales, $fieldFilter);
         return $data;
     }
 
@@ -408,7 +412,7 @@ class Database {
      * @param int $offset Number of entries to skip
      * @return array Array of entries
      */
-    public function getCollectionByName(string $name, ?array $locales = null, int $limit = 100, int $offset = 0, ?array $extraLocales = null): array
+    public function getCollectionByName(string $name, ?array $locales = null, int $limit = 100, int $offset = 0, ?array $extraLocales = null, ?array $fieldFilter = null): array
     {
         // Get content type
         $stmt = $this->connection->prepare("SELECT id, name FROM content_types WHERE name = :name AND is_singleton = 0");
@@ -434,13 +438,18 @@ class Database {
 
         // Get fields
         $fields = $this->getFieldsForContentType($contentType['id']);
+        if ($fieldFilter !== null) {
+            $fieldFilterSet = array_flip($fieldFilter);
+            $fields = array_values(array_filter($fields, static function($f) use ($fieldFilterSet) {
+                return isset($fieldFilterSet[$f['name']]);
+            }));
+        }
 
         // Build data for each entry
         $result = [];
         foreach ($entries as $entry) {
-            $result[] = $this->buildEntryData($entry['id'], $fields, $locales, $extraLocales);
+            $result[] = $this->buildEntryData($entry['id'], $fields, $locales, $extraLocales, $fieldFilter);
         }
-
         return $result;
     }
 
@@ -472,18 +481,20 @@ class Database {
      * @param array|null $locales Array of locales to fetch, null for all
      * @return array Entry data with id and field values
      */
-    private function buildEntryData(int $entryId, array $fields, ?array $locales = null, ?array $extraLocales = null): array
+    private function buildEntryData(int $entryId, array $fields, ?array $locales = null, ?array $extraLocales = null, ?array $fieldFilter = null): array
     {
         $data = ['id' => $entryId];
 
-        // Map field names to IDs and types for quick lookup
+        // Map field names to IDs for quick lookup
         $fieldNameToId = [];
-        $fieldIdToMeta = [];
         foreach ($fields as $f) {
-            $fid = (int)$f['id'];
-            $fname = $f['name'];
-            $fieldNameToId[$fname] = $fid;
-            $fieldIdToMeta[$fid] = $f;
+            $fieldNameToId[$f['name']] = (int)$f['id'];
+        }
+
+        // If a field filter is provided, ensure extraLocales only refers to allowed fields
+        if ($fieldFilter !== null && $extraLocales !== null) {
+            $allowed = array_flip($fieldFilter);
+            $extraLocales = array_intersect_key($extraLocales, $allowed);
         }
 
         // Determine locale set for main data (per field)
