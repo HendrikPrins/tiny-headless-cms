@@ -63,7 +63,6 @@ class ImageFieldType extends FieldType {
             'url' => $value['url'] ?? '',
             'filename' => $value['filename'] ?? '',
             'alt' => $value['alt'] ?? '',
-            'caption' => $value['caption'] ?? '',
         ];
 
         $jsonData = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -71,6 +70,7 @@ class ImageFieldType extends FieldType {
         $hiddenId = $fieldIdBase . '_hidden';
         $buttonId = $fieldIdBase . '_btn';
         $previewId = $fieldIdBase . '_preview';
+        $altId = $fieldIdBase . '_alt';
 
         ob_start();
         ?>
@@ -98,16 +98,28 @@ class ImageFieldType extends FieldType {
                     <span class="image-field-placeholder" style="color:#888; font-size:0.9em;">No image selected.</span>
                 <?php endif; ?>
             </div>
+            <div class="image-field-alt-wrapper" style="margin-top:6px;">
+                <label style="font-size:0.85em; color:#555; display:block;">
+                    Alt text
+                    <input type="text"
+                           id="<?= htmlspecialchars($altId, ENT_QUOTES, 'UTF-8') ?>"
+                           class="image-field-alt-input"
+                           style="display:block; width:100%; max-width:320px; margin-top:2px;"
+                           value="<?= htmlspecialchars($data['alt'], ENT_QUOTES, 'UTF-8') ?>">
+                </label>
+            </div>
         </div>
         <script>
         (function() {
             const hiddenId = <?= json_encode($hiddenId) ?>;
             const buttonId = <?= json_encode($buttonId) ?>;
             const previewId = <?= json_encode($previewId) ?>;
+            const altId = <?= json_encode($altId) ?>;
             const hiddenInput = document.getElementById(hiddenId);
             const button = document.getElementById(buttonId);
             const preview = document.getElementById(previewId);
-            if (!hiddenInput || !button || !preview) return;
+            const altInput = document.getElementById(altId);
+            if (!hiddenInput || !button || !preview || !altInput) return;
 
             function parseValue() {
                 try {
@@ -119,8 +131,12 @@ class ImageFieldType extends FieldType {
 
             function escapeHtml(str) {
                 return (str || '').replace(/[&<>"']/g, function(c){
-                    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c] || c;
+                    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c] || c;
                 });
+            }
+
+            function updateHidden(data) {
+                hiddenInput.value = JSON.stringify(data || {});
             }
 
             function updatePreview(data) {
@@ -144,20 +160,25 @@ class ImageFieldType extends FieldType {
                     return;
                 }
                 window.CMSImageAssetPicker.openPicker(function(asset) {
+                    const current = parseValue();
                     const data = {
                         assetId: asset.id || null,
                         url: asset.url || '',
                         filename: asset.filename || '',
-                        alt: '',
-                        caption: ''
+                        alt: current.alt || '',
                     };
-                    hiddenInput.value = JSON.stringify(data);
+                    updateHidden(data);
+                    altInput.value = data.alt || '';
                     updatePreview(data);
                 }, { manual: true, sourceButton: button, defaultFilter: 'images' });
             }
 
-            // Initialize preview from current value
-            updatePreview(parseValue());
+            // Initialize preview and alt from current value
+            const initial = parseValue();
+            if (initial.alt) {
+                altInput.value = initial.alt;
+            }
+            updatePreview(initial);
 
             button.addEventListener('mousedown', function(e) {
                 if (e.button !== 0) return; // only left click
@@ -169,6 +190,13 @@ class ImageFieldType extends FieldType {
                     e.preventDefault();
                     openPicker();
                 }
+            });
+
+            altInput.addEventListener('input', function() {
+                const data = parseValue();
+                data.alt = altInput.value || '';
+                updateHidden(data);
+                updatePreview(data);
             });
         })();
         </script>
