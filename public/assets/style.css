@@ -392,6 +392,73 @@ nav.breadcrumb ol li + li::before {
     font-weight: normal;
 }
 
+/* Shared asset field styling (used by AssetFieldCommon) */
+.asset-field-placeholder {
+    color: #888;
+    font-size: 0.9em;
+}
+
+.asset-single-preview-img {
+    max-width: 150px;
+    max-height: 150px;
+    display: block;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.asset-alt-wrapper {
+    margin-top: 6px;
+}
+
+.asset-alt-label {
+    font-size: 0.85em;
+    color: #555;
+    display: block;
+}
+
+.asset-alt-input {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    margin-top: 2px;
+}
+
+.asset-multi-list {
+    margin-top: 6px;
+}
+
+.asset-multi-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.asset-multi-thumb {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 3px;
+}
+
+.asset-multi-controls {
+    display: flex;
+    gap: 4px;
+}
+
+.asset-preview-img {
+    max-width: 150px;
+    max-height: 150px;
+    object-fit: cover;
+    border-radius: 3px;
+}
+
+.asset-preview-img-small {
+    max-width: 150px;
+    max-height: 150px;
+    margin-right: 3px;
+}
+
 .dialog {
     border: none;
     border-radius: 8px;

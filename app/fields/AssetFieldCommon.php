@@ -140,24 +140,23 @@ trait AssetFieldCommon {
                         <?php if ($showPreviewImage): ?>
                             <img src="<?= htmlspecialchars($data['url'], ENT_QUOTES, 'UTF-8') ?>"
                                  alt="<?= htmlspecialchars($data['alt'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-                                 style="max-width:150px; max-height:150px; display:block; object-fit:cover; border-radius:4px;">
+                                 class="asset-single-preview-img">
                         <?php endif; ?>
                         <div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-meta">
                             <small><?= htmlspecialchars($data['filename'] ?: basename($data['url']), ENT_QUOTES, 'UTF-8') ?></small>
                         </div>
                     </div>
                 <?php else: ?>
-                    <span class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-placeholder" style="color:#888; font-size:0.9em;">No <?= $this->labelForSingle() ?> selected.</span>
+                    <span class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-placeholder asset-field-placeholder">No <?= $this->labelForSingle() ?> selected.</span>
                 <?php endif; ?>
             </div>
             <?php if ($showAltInput): ?>
-            <div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-alt-wrapper" style="margin-top:6px;">
-                <label style="font-size:0.85em; color:#555; display:block;">
+            <div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-alt-wrapper asset-alt-wrapper">
+                <label class="asset-alt-label">
                     Alt text
                     <input type="text"
                            id="<?= htmlspecialchars($altId, ENT_QUOTES, 'UTF-8') ?>"
-                           class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-alt-input"
-                           style="display:block; width:100%; max-width:320px; margin-top:2px;"
+                           class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-alt-input asset-alt-input"
                            value="<?= htmlspecialchars($data['alt'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                 </label>
             </div>
@@ -188,7 +187,7 @@ trait AssetFieldCommon {
             }
             function updatePreview(data) {
                 if (!data || !data.url) {
-                    preview.innerHTML = '<span class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-placeholder" style="color:#888; font-size:0.9em;">No <?= $this->labelForSingle() ?> selected.</span>';
+                    preview.innerHTML = '<span class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-placeholder asset-field-placeholder">No <?= $this->labelForSingle() ?> selected.</span>';
                     button.textContent = <?= json_encode($buttonLabelSelect) ?>;
                     return;
                 }
@@ -196,7 +195,7 @@ trait AssetFieldCommon {
                 const alt = data.alt || '';
                 let html = '<div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-preview-inner">';
                 <?php if ($showPreviewImage): ?>
-                html += '<img src="' + escapeHtml(data.url) + '" alt="' + escapeHtml(alt) + '" style="max-width:150px; max-height:150px; display:block; object-fit:cover; border-radius:4px;">';
+                html += '<img src="' + escapeHtml(data.url) + '" alt="' + escapeHtml(alt) + '" class="asset-single-preview-img">';
                 <?php endif; ?>
                 html += '<div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-meta"><small>' + escapeHtml(filename) + '</small></div>';
                 html += '</div>';
@@ -261,7 +260,7 @@ trait AssetFieldCommon {
                     id="<?= htmlspecialchars($buttonId, ENT_QUOTES, 'UTF-8') ?>">
                 <?= $buttonLabel ?>
             </button>
-            <div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-list" id="<?= htmlspecialchars($listId, ENT_QUOTES, 'UTF-8') ?>"></div>
+            <div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-list asset-multi-list" id="<?= htmlspecialchars($listId, ENT_QUOTES, 'UTF-8') ?>"></div>
         </div>
         <script>
         (function(){
@@ -278,37 +277,37 @@ trait AssetFieldCommon {
             function save(items){ hiddenInput.value = JSON.stringify(items || []); }
             function render(items){
                 listEl.innerHTML = '';
-                if (!items.length){ listEl.innerHTML = '<span style="color:#888; font-size:0.9em;">No <?= $this->labelForMulti() ?> selected.</span>'; return; }
+                if (!items.length){ listEl.innerHTML = '<span class="asset-field-placeholder">No <?= $this->labelForMulti() ?> selected.</span>'; return; }
                 items.forEach(function(item, idx){
                     const row = document.createElement('div');
-                    row.className = '<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-item';
+                    row.className = '<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-item asset-multi-item';
                     row.dataset.index = String(idx);
                     <?php if ($supportsAlt): ?>
-                    const thumb = item.url ? '<img src="' + escapeHtml(item.url) + '" alt="" style="width:60px; height:60px; object-fit:cover; border-radius:3px;">' : '';
+                    const thumb = item.url ? '<img src="' + escapeHtml(item.url) + '" alt="" class="asset-multi-thumb">' : '';
                     const altVal = item.alt || '';
                     row.innerHTML = '<div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-thumb">'+ thumb +'</div>'
                         + '<div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-body">'
                         +   '<div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-filename"><small>' + escapeHtml(item.filename || (item.url||'').split('/').pop() || '') + '</small></div>'
-                        +   '<label style="font-size:0.8em; color:#555; display:block; margin-top:2px;">Alt text'
-                        +     '<input type="text" class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-alt" value="' + escapeHtml(altVal) + '" style="display:block; width:100%; max-width:260px; margin-top:2px;">'
+                        +   '<label class="asset-alt-label">Alt text'
+                        +     '<input type="text" class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-alt asset-alt-input" value="' + escapeHtml(altVal) + '">'
                         +   '</label>'
                         + '</div>'
-                        + '<div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-controls">'
+                        + '<div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-controls asset-multi-controls">'
                         <?php if ($sortable): ?>
-                        +   '<button type="button" class="btn-primary btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-up" title="Move up">&#9650;</button>'
-                        +   '<button type="button" class="btn-primary btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-down" title="Move down">&#9660;</button>'
+                        +   '<button type="button" class="btn-primary btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-up" title="Move up"><?= ICON_CHEVRON_UP ?></button>'
+                        +   '<button type="button" class="btn-primary btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-down" title="Move down"><?= ICON_CHEVRON_DOWN ?></button>'
                         <?php endif; ?>
-                        +   '<button type="button" class="btn-danger btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-remove" title="Remove">&times;</button>'
+                        +   '<button type="button" class="btn-danger btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-remove" title="Remove"><?= ICON_TRASH ?></button>'
                         + '</div>';
                     <?php else: ?>
                     const name = item.filename || (item.url||'').split('/').pop() || '';
                     row.innerHTML = '<div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-name"><small>' + escapeHtml(name) + '</small></div>'
-                        + '<div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-controls">'
+                        + '<div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-controls asset-multi-controls">'
                         <?php if ($sortable): ?>
-                        +   '<button type="button" class="btn-primary btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-up" title="Move up">&#9650;</button>'
-                        +   '<button type="button" class="btn-primary btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-down" title="Move down">&#9660;</button>'
+                        +   '<button type="button" class="btn-primary btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-up" title="Move up"><?= ICON_CHEVRON_UP ?></button>'
+                        +   '<button type="button" class="btn-primary btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-down" title="Move down"><?= ICON_CHEVRON_DOWN ?></button>'
                         <?php endif; ?>
-                        +   '<button type="button" class="btn-danger btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-remove" title="Remove">&times;</button>'
+                        +   '<button type="button" class="btn-danger btn-icon <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-remove" title="Remove"><?= ICON_TRASH ?></button>'
                         + '</div>';
                     <?php endif; ?>
                     listEl.appendChild(row);
@@ -340,15 +339,20 @@ trait AssetFieldCommon {
             listEl.addEventListener('click', function(e){
                 const row = e.target.closest('.<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-item');
                 if (!row) return;
+
+                const btn = e.target.closest('button');
+                if (!btn || !row.contains(btn)) return;
+
                 const idx = parseInt(row.dataset.index, 10);
                 let items = parseValue();
                 if (Number.isNaN(idx) || idx < 0 || idx >= items.length) return;
-                if (e.target.classList.contains('<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-remove')) {
+
+                if (btn.classList.contains('<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-remove')) {
                     items.splice(idx, 1);
                 <?php if ($sortable): ?>
-                } else if (e.target.classList.contains('<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-up')) {
+                } else if (btn.classList.contains('<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-up')) {
                     if (idx > 0) { const tmp = items[idx-1]; items[idx-1] = items[idx]; items[idx] = tmp; }
-                } else if (e.target.classList.contains('<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-down')) {
+                } else if (btn.classList.contains('<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-move-down')) {
                     if (idx < items.length - 1) { const tmp = items[idx+1]; items[idx+1] = items[idx]; items[idx] = tmp; }
                 <?php endif; ?>
                 } else {
@@ -381,12 +385,12 @@ trait AssetFieldCommon {
             $value = is_array($decoded) ? $decoded : null;
         }
         if (!is_array($value) || empty($value['url'])) {
-            return '<span style="color:#999;">-</span>';
+            return '<span class="asset-field-placeholder">-</span>';
         }
         if ($showImage) {
             $url = htmlspecialchars($value['url'], ENT_QUOTES, 'UTF-8');
             $alt = htmlspecialchars($value['alt'] ?? '', ENT_QUOTES, 'UTF-8');
-            return '<img src="' . $url . '" alt="' . $alt . '" style="max-width:80px; max-height:80px; object-fit:cover; border-radius:3px;">';
+            return '<img src="' . $url . '" alt="' . $alt . '" class="asset-preview-img">';
         }
         $name = htmlspecialchars($value['filename'] ?? basename($value['url']), ENT_QUOTES, 'UTF-8');
         return '<span>' . $name . '</span>';
@@ -398,7 +402,7 @@ trait AssetFieldCommon {
             $value = is_array($decoded) ? $decoded : [];
         }
         if (!is_array($value) || empty($value)) {
-            return '<span style="color:#999;">-</span>';
+            return '<span class="asset-field-placeholder">-</span>';
         }
         if ($showImages) {
             $parts = [];
@@ -406,11 +410,11 @@ trait AssetFieldCommon {
                 if (empty($v['url'])) continue;
                 $url = htmlspecialchars($v['url'], ENT_QUOTES, 'UTF-8');
                 $alt = htmlspecialchars($v['alt'] ?? '', ENT_QUOTES, 'UTF-8');
-                $parts[] = '<img src="' . $url . '" alt="' . $alt . '" style="max-width:40px; max-height:40px; object-fit:cover; border-radius:3px; margin-right:3px;">';
+                $parts[] = '<img src="' . $url . '" alt="' . $alt . '" class="asset-preview-img asset-preview-img-small">';
                 if (count($parts) >= $maxItems) break;
             }
             if (!$parts) {
-                return '<span style="color:#999;">-</span>';
+                return '<span class="asset-field-placeholder">-</span>';
             }
             return implode('', $parts);
         }
@@ -421,7 +425,7 @@ trait AssetFieldCommon {
             if (count($names) >= $maxItems) break;
         }
         if (!$names) {
-            return '<span style="color:#999;">-</span>';
+            return '<span class="asset-field-placeholder">-</span>';
         }
         $out = implode(', ', $names);
         if (count($value) > count($names)) {
