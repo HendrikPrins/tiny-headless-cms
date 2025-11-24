@@ -400,7 +400,8 @@ class Database {
             }));
         }
 
-        $data = $this->buildEntryData($entry['id'], $fields, $locales, $extraLocales, $fieldFilter);
+        $isSingleLocale = is_array($locales) && count($locales) === 1;
+        $data = $this->buildEntryData($entry['id'], $fields, $locales, $extraLocales, $fieldFilter, $isSingleLocale);
         return $data;
     }
 
@@ -445,10 +446,10 @@ class Database {
             }));
         }
 
-        // Build data for each entry
+        $isSingleLocale = is_array($locales) && count($locales) === 1;
         $result = [];
         foreach ($entries as $entry) {
-            $result[] = $this->buildEntryData($entry['id'], $fields, $locales, $extraLocales, $fieldFilter);
+            $result[] = $this->buildEntryData($entry['id'], $fields, $locales, $extraLocales, $fieldFilter, $isSingleLocale);
         }
         return $result;
     }
@@ -481,7 +482,7 @@ class Database {
      * @param array|null $locales Array of locales to fetch, null for all
      * @return array Entry data with id and field values
      */
-    private function buildEntryData(int $entryId, array $fields, ?array $locales = null, ?array $extraLocales = null, ?array $fieldFilter = null): array
+    private function buildEntryData(int $entryId, array $fields, ?array $locales = null, ?array $extraLocales = null, ?array $fieldFilter = null, bool $isSingleLocale = false): array
     {
         $data = ['id' => $entryId];
 
@@ -497,7 +498,7 @@ class Database {
             $extraLocales = array_intersect_key($extraLocales, $allowed);
         }
 
-        // Determine locale set for main data (per field)
+        // Determine locale set for main data
         $mainLocales = [];
         if ($locales !== null) {
             foreach ($locales as $loc) {
@@ -507,7 +508,6 @@ class Database {
                 }
             }
         } else {
-            // If no locales param, we default to all configured locales for main data
             foreach (CMS_LOCALES as $loc) {
                 $loc = (string)$loc;
                 if ($loc !== '') {
@@ -516,23 +516,20 @@ class Database {
             }
         }
 
-        // Build a set of required (field_id, locale) combinations
+        // Build required (field_id, locale) combinations
         $required = [];
-        // Always need non-translatable bucket ('') for non-translatable fields
         foreach ($fields as $f) {
             $fid = (int)$f['id'];
             $isTranslatable = (bool)$f['is_translatable'];
             if (!$isTranslatable) {
                 $required[$fid][''] = true;
             } else {
-                // For translatable fields, add main locales
                 foreach (array_keys($mainLocales) as $loc) {
                     $required[$fid][$loc] = true;
                 }
             }
         }
 
-        // Add extraLocales requirements (per field name)
         if ($extraLocales !== null) {
             foreach ($extraLocales as $fieldName => $spec) {
                 if (!isset($fieldNameToId[$fieldName])) continue;
@@ -551,14 +548,12 @@ class Database {
             }
         }
 
-        // If nothing specific required (edge case), keep existing behavior: fetch all
         if (empty($required)) {
             $sql = "SELECT field_id, locale, value FROM field_values WHERE entry_id = :eid";
             $stmt = $this->connection->prepare($sql);
             $stmt->bindValue(':eid', $entryId, PDO::PARAM_INT);
             $stmt->execute();
         } else {
-            // Build a single query using IN on (field_id, locale) pairs
             $parts = [];
             $params = [':eid' => $entryId];
             $i = 0;
@@ -587,7 +582,6 @@ class Database {
 
         $values = $stmt->fetchAll();
 
-        // Organize values by field id and locale for quick lookup
         $byField = [];
         foreach ($values as $val) {
             $fid = (int)$val['field_id'];
@@ -596,6 +590,10 @@ class Database {
         }
 
         $extraOut = [];
+        $singleLocaleKey = null;
+        if ($isSingleLocale && $locales !== null && count($locales) === 1) {
+            $singleLocaleKey = (string)$locales[0];
+        }
 
         foreach ($fields as $field) {
             $fieldId = (int)$field['id'];
@@ -605,14 +603,23 @@ class Database {
 
             // Main data
             if ($isTranslatable) {
-                $obj = new stdClass();
-                if (isset($byField[$fieldId])) {
-                    foreach ($byField[$fieldId] as $loc => $rawVal) {
-                        if ($loc === '') continue; // skip non-translatable bucket
-                        $obj->$loc = $this->castValue($rawVal, $fieldType);
+                if ($singleLocaleKey !== null) {
+                    // Flatten to single locale value
+                    if (isset($byField[$fieldId][$singleLocaleKey])) {
+                        $data[$fieldName] = $this->castValue($byField[$fieldId][$singleLocaleKey], $fieldType);
+                    } else {
+                        $data[$fieldName] = null;
                     }
+                } else {
+                    $obj = new stdClass();
+                    if (isset($byField[$fieldId])) {
+                        foreach ($byField[$fieldId] as $loc => $rawVal) {
+                            if ($loc === '') continue;
+                            $obj->$loc = $this->castValue($rawVal, $fieldType);
+                        }
+                    }
+                    $data[$fieldName] = $obj;
                 }
-                $data[$fieldName] = $obj;
             } else {
                 $value = null;
                 if (isset($byField[$fieldId][''])) {
@@ -643,6 +650,10 @@ class Database {
                     }
                 }
             }
+        }
+
+        if (!empty($extraOut)) {
+            $data['extraLocales'] = (object)$extraOut;
         }
 
         return $data;

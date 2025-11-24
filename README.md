@@ -85,6 +85,34 @@ api.php?collection=news&fields=title,slug
 ### extraLocales
 api.php?collection=news&locale=nl&extraLocales[slug]=*
 
+### Locale shaping
+
+The shape of localized fields depends on how many locales you request:
+
+- **Single locale** (e.g. `locale=nl`):
+  - Translatable fields are **flattened** to simple values.
+  - Example:
+    ```json
+    {
+      "data": {
+        "id": 1,
+        "title": "Inzicht in energie.",
+        "summary": "CEMM biedt krachtige functies..."
+      }
+    }
+    ```
+- **Multiple locales** (e.g. `locale[0]=nl&locale[1]=en`):
+  - Translatable fields are returned as objects keyed by locale:
+    ```json
+    {
+      "data": {
+        "id": 1,
+        "title": { "nl": "Inzicht in energie.", "en": "Insight into energy." }
+      }
+    }
+    ```
+
+Any `extraLocales[field]=...` options are exposed under an `extraLocales` object alongside the flattened or per-locale fields.
 
 
 ## Rich Text Image Asset Block
@@ -110,4 +138,3 @@ Each image block is stored as:
   }
 }
 ```
-
