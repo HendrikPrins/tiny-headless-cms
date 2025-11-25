@@ -52,70 +52,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (InvalidArgumentException $e) {
                 $errors[] = $e->getMessage();
             } catch (PDOException $e) {
-                $errors[] = ($e->getCode() === '23000') ? 'A content type with that name already exists.' : 'Failed to update name.';
+                $errors[] = 'Failed to update name.';
             }
         } elseif ($action === 'save_all') {
-            $fieldsJson = $_POST['fields_json'] ?? '';
+            $fieldsJson = $_POST['fields'] ?? '';
             $decoded = json_decode($fieldsJson, true);
             if (!is_array($decoded)) {
                 $errors[] = 'Invalid payload.';
             } else {
                 try {
-                    $oldFields = [];
-                    foreach ($db->getFieldsForContentType($id) as $f) {
-                        $oldFields[$f['id']] = [
-                                'id' => (int)$f['id'],
-                                'name' => $f['name'],
-                                'field_type' => $f['field_type'],
-                                'is_required' => (bool)$f['is_required'],
-                                'is_translatable' => (bool)$f['is_translatable'],
-                                'order' => (int)$f['order']
-                        ];
-                    }
-                    foreach ($decoded as $item) {
-                        $fid = isset($item['id']) ? (int)$item['id'] : 0;
-                        $deleted = !empty($item['deleted']);
-                        $name = isset($item['name']) ? trim((string)$item['name']) : '';
-                        $type = isset($item['field_type']) ? trim((string)$item['field_type']) : '';
-                        $is_required = !empty($item['is_required']);
-                        $is_translatable = !empty($item['is_translatable']);
-                        $order = isset($item['order']) ? (int)$item['order'] : 0;
-
-                        if ($fid > 0 && $deleted) {
-                            $db->deleteField($fid);
-                            continue;
-                        }
-
-                        if ($fid > 0) {
-                            if ($name === '') {
-                                throw new InvalidArgumentException('Field name is required for updates');
-                            }
-                            if (!FieldRegistry::isValidType($type)) {
-                                throw new InvalidArgumentException('Invalid field type for updates');
-                            }
-                            $db->updateField($fid, $name, $type, $is_required, $is_translatable, $order);
-                            $oldField = $oldFields[$fid] ?? null;
-                            if ($oldField && ($oldField['is_translatable'] !== $is_translatable)) {
-                                $primaryLocale = CMS_LOCALES[0];
-                                if ($is_translatable) {
-                                    $db->migrateFieldToTranslatable($fid, $primaryLocale);
-                                } else {
-                                    $db->migrateFieldToNonTranslatable($fid, $primaryLocale);
-                                }
-                            }
-                        } else {
-                            if ($deleted) {
-                                continue;
-                            }
-                            if ($name === '') {
-                                continue;
-                            }
-                            if (!FieldRegistry::isValidType($type)) {
-                                throw new InvalidArgumentException('Invalid field type for create');
-                            }
-                            $db->createField($id, $name, $type, $is_required, $is_translatable, $order);
-                        }
-                    }
+                    Database::getInstance()->setContentTypeSchema($id, $decoded);
 
                     $_SESSION['flash_messages'] = ['Fields saved.'];
                     while (ob_get_level() > 0) {
@@ -134,16 +80,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$fields = $db->getFieldsForContentType($id);
-// Prepare fields for JS - ensure booleans
+$fields = $contentType['schema']['fields'];
 $jsFields = array_map(function ($f) {
     return [
-            'id' => (int)$f['id'],
-            'name' => $f['name'],
-            'field_type' => $f['field_type'],
-            'is_required' => (bool)$f['is_required'],
-            'is_translatable' => (bool)$f['is_translatable'],
-            'order' => (int)$f['order']
+        'name' => $f['name'],
+        'type' => $f['type'],
+        'is_translatable' => (bool)$f['is_translatable']
     ];
 }, $fields);
 
@@ -190,14 +132,11 @@ $jsFields = array_map(function ($f) {
                 <input type="text" data-column="field_name" placeholder="Field name">
             </td>
             <td>
-                <select data-column="field_type">
+                <select data-column="type">
                     <?php foreach ($fieldTypes as $fieldType): ?>
                         <option value="<?= $fieldType ?>"><?= $fieldType ?></option>
                     <?php endforeach; ?>
                 </select>
-            </td>
-            <td style="text-align:center;">
-                <input type="checkbox" data-column="is_required">
             </td>
             <td style="text-align:center;">
                 <input type="checkbox" data-column="is_translatable">
@@ -215,7 +154,6 @@ $jsFields = array_map(function ($f) {
             <tr>
                 <th>Name</th>
                 <th>Type</th>
-                <th style="text-align:center;">Required</th>
                 <th style="text-align:center;">Translatable</th>
                 <th></th>
             </tr>
@@ -232,7 +170,7 @@ $jsFields = array_map(function ($f) {
     <form id="save-all-form" method="post" class="form">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="action" value="save_all">
-        <input type="hidden" name="fields_json" id="fields_json_input">
+        <input type="hidden" name="fields" id="fields_input">
         <div class="form-buttons">
             <button type="button" id="save-all-btn" class="btn-primary">Save All</button>
             <button type="button" id="add-field-btn" class="btn-primary">Add Field</button>
@@ -254,59 +192,56 @@ $jsFields = array_map(function ($f) {
 <script>
     (function () {
         const initialFields = <?= json_encode($jsFields, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        // Track deleted by original name (names are unique per content type)
         const deletedFields = new Set();
 
         function getCurrentState() {
             const tableBody = document.querySelector('#fieldTable tbody');
             const rows = Array.from(tableBody.querySelectorAll('tr'));
             return rows.map((row, idx) => {
-                const id = row.getAttribute('data-field-id');
                 return {
-                    id: id && id !== 'null' ? parseInt(id) : 0,
+                    // originalName is what this row was created from (for existing fields)
+                    originalName: row.getAttribute('data-original-name') || null,
                     name: row.querySelector('[data-column="field_name"]').value.trim(),
-                    field_type: row.querySelector('[data-column="field_type"]').value,
-                    is_required: row.querySelector('[data-column="is_required"]').checked,
+                    type: row.querySelector('[data-column="type"]').value,
                     is_translatable: row.querySelector('[data-column="is_translatable"]').checked,
                     order: idx
                 };
             });
         }
 
-        function findOriginal(id) {
-            return initialFields.find(f => f.id === id);
+        function findOriginalByName(name) {
+            return initialFields.find(f => f.name === name) || null;
         }
 
         function detectChanges() {
             const current = getCurrentState();
             const changes = [];
 
-            // Check for deleted fields
-            deletedFields.forEach(id => {
-                const orig = findOriginal(id);
+            // Deleted fields (by original name)
+            deletedFields.forEach(name => {
+                const orig = findOriginalByName(name);
                 if (orig) {
                     changes.push({
                         type: 'deleted',
-                        id: id,
+                        originalName: name,
                         name: orig.name
                     });
                 }
             });
 
-            // Check current fields for changes
-            current.forEach((field, idx) => {
-                if (field.id > 0) {
-                    const orig = findOriginal(field.id);
+            current.forEach(field => {
+                // Existing row if it has an originalName from initial fields
+                if (field.originalName) {
+                    const orig = findOriginalByName(field.originalName);
                     if (!orig) return;
 
                     const fieldChanges = [];
                     if (field.name !== orig.name) {
                         fieldChanges.push(`name: "${orig.name}" → "${field.name}"`);
                     }
-                    if (field.field_type !== orig.field_type) {
-                        fieldChanges.push(`type: ${orig.field_type} → ${field.field_type}`);
-                    }
-                    if (field.is_required !== orig.is_required) {
-                        fieldChanges.push(`required: ${orig.is_required ? 'yes' : 'no'} → ${field.is_required ? 'yes' : 'no'}`);
+                    if (field.type !== orig.type) {
+                        fieldChanges.push(`type: ${orig.type} → ${field.type}`);
                     }
                     if (field.is_translatable !== orig.is_translatable) {
                         fieldChanges.push(`translatable: ${orig.is_translatable ? 'yes' : 'no'} → ${field.is_translatable ? 'yes' : 'no'}`);
@@ -315,7 +250,7 @@ $jsFields = array_map(function ($f) {
                     if (fieldChanges.length > 0) {
                         changes.push({
                             type: 'modified',
-                            id: field.id,
+                            originalName: field.originalName,
                             name: field.name,
                             changes: fieldChanges
                         });
@@ -325,7 +260,7 @@ $jsFields = array_map(function ($f) {
                     changes.push({
                         type: 'new',
                         name: field.name,
-                        field_type: field.field_type
+                        type: field.type
                     });
                 }
             });
@@ -351,10 +286,10 @@ $jsFields = array_map(function ($f) {
                 item.style.cssText = 'margin-bottom:8px; padding:8px; border-radius:4px; border-left:4px solid #007bff;';
 
                 if (change.type === 'new') {
-                    item.innerHTML = `<strong>➕ New field:</strong> ${escapeHtml(change.name)} (${change.field_type})`;
+                    item.innerHTML = `<strong>➕ New field:</strong> ${escapeHtml(change.name)} (${change.type})`;
                     item.style.borderLeftColor = '#28a745';
                 } else if (change.type === 'deleted') {
-                    item.innerHTML = `<strong>🗑️ Deleted:</strong> ${escapeHtml(change.name)} <button type="button" class="btn-secondary" style="margin-left:8px; padding:2px 8px; font-size:0.85em;" data-undelete="${change.id}">Undo Delete</button>`;
+                    item.innerHTML = `<strong>🗑️ Deleted:</strong> ${escapeHtml(change.name)} <button type="button" class="btn-secondary" style="margin-left:8px; padding:2px 8px; font-size:0.85em;" data-undelete="${change.originalName}">Undo Delete</button>`;
                     item.style.borderLeftColor = '#dc3545';
                 } else if (change.type === 'modified') {
                     item.innerHTML = `<strong>✏️ Modified:</strong> ${escapeHtml(change.name)}<ul style="margin:4px 0 0 20px; padding:0;">${change.changes.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`;
@@ -367,8 +302,8 @@ $jsFields = array_map(function ($f) {
             // Add undelete handlers
             changesList.querySelectorAll('[data-undelete]').forEach(btn => {
                 btn.addEventListener('click', function () {
-                    const id = parseInt(this.getAttribute('data-undelete'));
-                    undeleteField(id);
+                    const originalName = this.getAttribute('data-undelete');
+                    undeleteField(originalName);
                 });
             });
         }
@@ -387,18 +322,20 @@ $jsFields = array_map(function ($f) {
             const template = document.getElementById('rowTemplate');
             const row = template.content.cloneNode(true).querySelector('tr');
 
-            row.setAttribute("data-field-id", field.id || null);
+            // For existing fields, remember their original name; new fields have null originalName
+            if (field.name) {
+                row.setAttribute('data-original-name', field.name);
+            }
+
             const nameInput = row.querySelector('[data-column="field_name"]');
-            const typeSelect = row.querySelector('[data-column="field_type"]');
-            const reqCheck = row.querySelector('[data-column="is_required"]');
+            const typeSelect = row.querySelector('[data-column="type"]');
             const transCheck = row.querySelector('[data-column="is_translatable"]');
 
             nameInput.value = field.name || '';
-            typeSelect.value = field.field_type || 'string';
-            reqCheck.checked = field.is_required || false;
+            typeSelect.value = field.type || 'string';
             transCheck.checked = field.is_translatable || false;
 
-            [nameInput, typeSelect, reqCheck, transCheck].forEach(el => {
+            [nameInput, typeSelect, transCheck].forEach(el => {
                 el.addEventListener('change', updateSummary);
                 el.addEventListener('input', updateSummary);
             });
@@ -420,9 +357,9 @@ $jsFields = array_map(function ($f) {
             });
 
             row.querySelector('[data-column="btn_delete"]').addEventListener('click', function () {
-                const id = row.getAttribute('data-field-id');
-                if (id && id !== 'null') {
-                    deletedFields.add(parseInt(id));
+                const originalName = row.getAttribute('data-original-name');
+                if (originalName) {
+                    deletedFields.add(originalName);
                 }
                 row.remove();
                 updateSummary();
@@ -431,9 +368,9 @@ $jsFields = array_map(function ($f) {
             tableBody.appendChild(row);
         }
 
-        function undeleteField(id) {
-            deletedFields.delete(id);
-            const orig = findOriginal(id);
+        function undeleteField(originalName) {
+            deletedFields.delete(originalName);
+            const orig = findOriginalByName(originalName);
             if (orig) {
                 addField(orig);
             }
@@ -444,40 +381,58 @@ $jsFields = array_map(function ($f) {
             const current = getCurrentState();
             const payload = [];
 
-            // Add deleted fields to payload
-            deletedFields.forEach(id => {
+            // Existing and new fields
+            current.forEach(field => {
+                const isExisting = !!field.originalName;
+                const orig = isExisting ? findOriginalByName(field.originalName) : null;
+
+                const originalName = orig ? orig.name : null;
+                const originalType = orig ? orig.type : null;
+                const originalTranslatable = orig ? !!orig.is_translatable : null;
+
+                const entry = {
+                    // original identifying name (null for new fields)
+                    name: originalName,
+                    type: originalType,
+                    is_translatable: originalTranslatable,
+                    $name: field.name,
+                    $type: field.type,
+                    $is_translatable: !!field.is_translatable
+                };
+
+                payload.push(entry);
+            });
+
+            // Deleted fields (existing only, new fields are never added to deletedFields)
+            deletedFields.forEach(originalName => {
+                const orig = findOriginalByName(originalName);
+                if (!orig) {
+                    return;
+                }
                 payload.push({
-                    id: id,
-                    deleted: 1
+                    name: orig.name,
+                    type: orig.type,
+                    is_translatable: !!orig.is_translatable,
+                    $name: null,
+                    $type: null,
+                    $is_translatable: null,
+                    deleted: true
                 });
             });
 
-            // Add current fields
-            current.forEach((field, idx) => {
-                payload.push({
-                    id: field.id || 0,
-                    name: field.name,
-                    field_type: field.field_type,
-                    is_required: field.is_required ? 1 : 0,
-                    is_translatable: field.is_translatable ? 1 : 0,
-                    order: idx,
-                    deleted: 0
-                });
-            });
-
-            document.getElementById('fields_json_input').value = JSON.stringify(payload);
+            document.getElementById('fields_input').value = JSON.stringify(payload);
             document.getElementById('save-all-form').submit();
         }
 
         window.addEventListener('DOMContentLoaded', function () {
             initialFields.forEach(f => addField(f));
 
-            document.getElementById("add-field-btn").addEventListener("click", function () {
+            document.getElementById('add-field-btn').addEventListener('click', function () {
                 addField();
                 updateSummary();
             });
 
-            document.getElementById("save-all-btn").addEventListener("click", saveAll);
+            document.getElementById('save-all-btn').addEventListener('click', saveAll);
 
             updateSummary();
         });

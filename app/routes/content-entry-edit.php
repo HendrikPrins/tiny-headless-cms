@@ -6,7 +6,7 @@ if ($ctId <= 0) { echo '<h1>Content type not found</h1>'; return; }
 $ct = $db->getContentType($ctId);
 if (!$ct) { echo '<h1>Content type not found</h1>'; return; }
 $title = ($entryId > 0 ? 'Edit Entry: ' : 'Create Entry: ') . htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8');
-$fields = $db->getFieldsForContentType($ctId);
+$fields = $ct['schema']['fields'];
 $isSingleton = $ct['is_singleton'];
 
 // Get available locales
@@ -21,38 +21,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo '<div class="alert alert-danger">Singleton already has an entry.</div>';
         } else {
             if ($entryId === 0) {
-                $entryId = $db->createEntry($ctId);
+                $entryId = $db->createEntry($ct);
             }
 
+            // Save translatable fields per locale
             foreach ($locales as $locale) {
                 $translatableValues = [];
                 foreach ($fields as $f) {
-                    $fid = (int)$f['id'];
+                    $fieldName = $f['name'];
                     $isTranslatable = (bool)$f['is_translatable'];
                     if (!$isTranslatable) { continue; }
-                    $key = 'field_' . $fid . '_' . $locale;
-                    $raw = $_POST[$key] ?? '';
-                    $fieldType = FieldRegistry::get($f['field_type']);
-                    $translatableValues[$fid] = $fieldType->deserializeFromPost($_POST, $key);
+                    $key = 'field_' . $fieldName . '_' . $locale;
+                    $fieldType = FieldRegistry::get($f['type']);
+                    $translatableValues[$fieldName] = $fieldType->deserializeFromPost($_POST, $key);
                 }
-                // Save translatable values for this locale
                 if (!empty($translatableValues)) {
-                    $db->saveEntryValues($entryId, $translatableValues, $locale);
+                    $db->saveEntryValues($ct, $entryId, $translatableValues, $locale);
                 }
             }
 
-            // Save non-translatable fields with empty locale (process all, even if not present in POST)
+            // Save non-translatable fields with empty locale
             $nonTranslatableValues = [];
             foreach ($fields as $f) {
-                $fid = (int)$f['id'];
+                $fieldName = $f['name'];
                 if (!(bool)$f['is_translatable']) {
-                    $key = 'field_' . $fid;
-                    $fieldType = FieldRegistry::get($f['field_type']);
-                    $nonTranslatableValues[$fid] = $fieldType->deserializeFromPost($_POST, $key);
+                    $key = 'field_' . $fieldName;
+                    $fieldType = FieldRegistry::get($f['type']);
+                    $nonTranslatableValues[$fieldName] = $fieldType->deserializeFromPost($_POST, $key);
                 }
             }
             if (!empty($nonTranslatableValues)) {
-                $db->saveEntryValues($entryId, $nonTranslatableValues, '');
+                $db->saveEntryValues($ct, $entryId, $nonTranslatableValues, '');
             }
 
             if ($ct['is_singleton']) {
@@ -68,15 +67,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $entry = null;
 $valuesByLocale = [];
 if ($entryId > 0) {
-    $entry = $db->getEntryById($entryId);
-    if (!$entry || (int)$entry['content_type_id'] !== $ctId) { echo '<h1>Entry not found</h1>'; return; }
+    $entry = $db->getEntryById($ct, $entryId);
+    if (empty($entry)) {
+        echo '<h1>Entry not found</h1>';
+        return;
+    }
 
     // Load values for all locales
     foreach ($locales as $locale) {
-        $valuesByLocale[$locale] = $db->getFieldValuesForEntry($entryId, $locale);
+        $valuesByLocale[$locale] = $db->getFieldValuesForEntry($ct, $entryId, $locale);
     }
     // Load non-translatable values (empty locale)
-    $valuesByLocale[''] = $db->getFieldValuesForEntry($entryId, '');
+    $valuesByLocale[''] = $db->getFieldValuesForEntry($ct, $entryId, '');
 }
 
 foreach (FieldRegistry::getAll() as $ft) {
@@ -104,7 +106,7 @@ foreach (FieldRegistry::getAll() as $ft) {
     Show: <button type="button" data-locale-toggle="__global" class="btn">GLOBAL</button>
     <?php foreach ($locales as $loc): ?>
         <button type="button" data-locale-toggle="<?= htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ?>" class="btn">
-            <?= strtoupper(htmlspecialchars($loc, ENT_QUOTES, 'UTF-8')) ?>
+            <?= strtoupper(htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ) ?>
         </button>
     <?php endforeach; ?>
 </div>
@@ -112,19 +114,19 @@ foreach (FieldRegistry::getAll() as $ft) {
 <form method="post" class="form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 
-    <?php foreach ($fields as $f): $fid=(int)$f['id']; $name = htmlspecialchars($f['name'], ENT_QUOTES, 'UTF-8'); $ft=$f['field_type']; $isTranslatable=(bool)$f['is_translatable']; ?>
+    <?php foreach ($fields as $f): $fieldName = $f['name']; $name = htmlspecialchars($fieldName, ENT_QUOTES, 'UTF-8'); $ft=$f['type']; $isTranslatable=(bool)$f['is_translatable']; ?>
         <?php if ($isTranslatable): ?>
-            <?php foreach ($locales as $loc): $val = $valuesByLocale[$loc][$fid] ?? ''; $inputName='field_'.$fid.'_'.$loc; $fieldType = FieldRegistry::get($ft); $wrap = $fieldType->shouldWrapWithLabel(); ?>
+            <?php foreach ($locales as $loc): $val = $valuesByLocale[$loc][$fieldName] ?? ''; $inputName='field_'.$fieldName.'_'.$loc; $fieldType = FieldRegistry::get($ft); $wrap = $fieldType->shouldWrapWithLabel(); ?>
                 <<?= $wrap ? 'label' : 'div' ?> class="field" data-locale-field="<?= htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ?>">
-                    <div class="label"><span><?= $name ?></span><?= $f['is_required'] ? ' *' : '' ?> <span class="field-locale">[<?= strtoupper(htmlspecialchars($loc, ENT_QUOTES, 'UTF-8')) ?>]</span><span><?=$ft?></span></div>
+                    <div class="label"><span><?= $name ?></span> <span class="field-locale">[<?= strtoupper(htmlspecialchars($loc, ENT_QUOTES, 'UTF-8')) ?>]</span><span><?= $ft ?></span></div>
                     <?php
                     echo $fieldType->renderAdminForm(htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8'), $val);
                     ?>
                 </<?= $wrap ? 'label' : 'div' ?>>
             <?php endforeach; ?>
-        <?php else: $val = $valuesByLocale[''][$fid] ?? ''; $inputName='field_'.$fid; $fieldType = FieldRegistry::get($ft); $wrap = $fieldType->shouldWrapWithLabel(); ?>
+        <?php else: $val = $valuesByLocale[''][$fieldName] ?? ''; $inputName='field_'.$fieldName; $fieldType = FieldRegistry::get($ft); $wrap = $fieldType->shouldWrapWithLabel(); ?>
             <<?= $wrap ? 'label' : 'div' ?> class="field" data-locale-field="__global">
-                <div class="label"><span><?= $name ?></span><?= $f['is_required'] ? ' *' : '' ?><span><?=$ft?></span></div>
+                <div class="label"><span><?= $name ?></span><span><?= $ft ?></span></div>
                 <?php
                 echo $fieldType->renderAdminForm(htmlspecialchars($inputName, ENT_QUOTES, 'UTF-8'), $val);
                 ?>

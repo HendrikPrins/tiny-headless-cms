@@ -61,77 +61,87 @@ class Database {
         return $stmt->fetch();
     }
 
-    public function getCollections()
-    {
-        $sql = "
-            SELECT
-                ct.id,
-                ct.name,
-                (SELECT COUNT(*) FROM fields f WHERE f.content_type_id = ct.id)   AS fields_count,
-                (SELECT COUNT(*) FROM entries e WHERE e.content_type_id = ct.id)  AS entries_count
-            FROM content_types ct
-            WHERE ct.is_singleton = 0
-            ORDER BY ct.name
-        ";
-        $stmt = $this->connection->query($sql);
-        return $stmt->fetchAll();
-    }
-
-    public function createCollectionType(string $name): int
-    {
-        $name = trim($name);
-        if ($name === '') {
-            throw new InvalidArgumentException('Name is required');
-        }
-
-        $stmt = $this->connection->prepare(
-            "INSERT INTO content_types (name, is_singleton) VALUES (:name, 0)"
-        );
-        $stmt->bindParam(':name', $name);
-        $stmt->execute();
-
-        return (int)$this->connection->lastInsertId();
-    }
-
-    // New: list all content types (collections and singletons)
     public function getContentTypes()
     {
-        $sql = "
-            SELECT
-                ct.id,
-                ct.name,
-                ct.is_singleton,
-                (SELECT COUNT(*) FROM fields f WHERE f.content_type_id = ct.id)   AS fields_count,
-                (SELECT COUNT(*) FROM entries e WHERE e.content_type_id = ct.id)  AS entries_count,
-                CASE WHEN ct.is_singleton = 1 THEN (
-                    SELECT e.id FROM entries e WHERE e.content_type_id = ct.id ORDER BY e.id ASC LIMIT 1
-                ) ELSE NULL END AS singleton_entry_id
-            FROM content_types ct
-            ORDER BY ct.name
-        ";
-        $stmt = $this->connection->query($sql);
-        return $stmt->fetchAll();
+        $stmt = $this->connection->query("SELECT id, name, is_singleton, schema FROM content_types ORDER BY name ASC");
+        $rows = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $row['schema'] = json_decode($row['schema'], true);
+            $rows[] = $row;
+        }
+        foreach ($rows as &$row) {
+            if (!$row['is_singleton']) {
+                $row['entries_count'] = (int)$this->connection->query("SELECT COUNT(*) FROM {$row['name']}")->fetchColumn();
+            } else {
+                $row['singleton_entry_id'] = (int)$this->connection->query("SELECT id FROM {$row['name']}")->fetchColumn();
+            }
+        }
+        return $rows;
     }
 
-    // New: create content type with singleton flag
     public function createContentType(string $name, bool $isSingleton): int
     {
-        $name = trim($name);
+        // Basic validation
         if ($name === '') {
-            throw new InvalidArgumentException('Name is required');
+            throw new InvalidArgumentException('Content type name must not be empty');
         }
-        $is = $isSingleton ? 1 : 0;
-        $stmt = $this->connection->prepare(
-            "INSERT INTO content_types (name, is_singleton) VALUES (:name, :is_singleton)"
-        );
-        $stmt->bindParam(':name', $name);
-        $stmt->bindParam(':is_singleton', $is, PDO::PARAM_INT);
-        $stmt->execute();
-        return (int)$this->connection->lastInsertId();
+        if (trim($name) !== $name) {
+            throw new InvalidArgumentException('Content type name must not have leading or trailing whitespace');
+        }
+        if (mb_strlen($name) > 255) {
+            throw new InvalidArgumentException('Content type name must be at most 255 characters');
+        }
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $name)) {
+            throw new InvalidArgumentException('Content type name may only contain letters, digits, and underscores, and must not start with a digit');
+        }
+
+        $tableName = $name;
+        $localizedTableName = $name . '_localized';
+
+        try {
+            // Ensure name is unique in content_types
+            $stmt = $this->connection->prepare('SELECT id FROM content_types WHERE name = :name LIMIT 1');
+            $stmt->execute([':name' => $name]);
+            if ($stmt->fetchColumn() !== false) {
+                throw new RuntimeException('Content type name already exists');
+            }
+
+            // Insert into content_types with empty schema
+            $emptySchema = json_encode(['fields' => []], JSON_UNESCAPED_UNICODE);
+            $stmt = $this->connection->prepare('INSERT INTO content_types (name, is_singleton, schema) VALUES (:name, :is_singleton, :schema)');
+            $stmt->execute([
+                ':name' => $name,
+                ':is_singleton' => $isSingleton ? 1 : 0,
+                ':schema' => $emptySchema,
+            ]);
+
+            $id = (int)$this->connection->lastInsertId();
+            if ($id <= 0) {
+                throw new RuntimeException('Failed to create content type');
+            }
+
+            // Create base table
+            $sqlBase = "CREATE TABLE `{$tableName}` (\n" .
+                "    id INT UNSIGNED NOT NULL AUTO_INCREMENT,\n" .
+                "    PRIMARY KEY (id)\n" .
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+            $this->connection->exec($sqlBase);
+
+            // Create localized table
+            $sqlLocalized = "CREATE TABLE `{$localizedTableName}` (\n" .
+                "    id INT UNSIGNED NOT NULL,\n" .
+                "    locale VARCHAR(255) NOT NULL,\n" .
+                "    PRIMARY KEY (id, locale)\n" .
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+            $this->connection->exec($sqlLocalized);
+
+            return $id;
+        } catch (Throwable $e) {
+            throw $e;
+        }
     }
 
-    // Add: update content type name
-    public function updateContentTypeName(int $id, string $name): bool
+    public function updateContentTypeName(int $id, string $name)
     {
         $name = trim($name);
         if ($name === '') {
@@ -140,651 +150,983 @@ class Database {
         if (strlen($name) > 255) {
             throw new InvalidArgumentException('Name must be 255 characters or fewer');
         }
+
+        $ct = $this->getContentType($id);
+
         $stmt = $this->connection->prepare("UPDATE content_types SET name = :name WHERE id = :id");
         $stmt->bindParam(':name', $name);
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        return $stmt->execute();
+        $stmt->execute();
+
+        $tableName = $name;
+        $localizedTableName = $name . '_localized';
+        $tableNameOld = $ct['name'];
+        $tableNameOld_localized = $tableNameOld . '_localized';
+        $stmt = $this->connection->prepare("RENAME TABLE {$tableNameOld} TO {$tableName}, {$tableNameOld_localized} TO {$localizedTableName}");
+        $stmt->execute();
     }
 
-    // Fetch a single collection/content type by id
     public function getContentType(int $id)
     {
-        $stmt = $this->connection->prepare("SELECT id, name, is_singleton FROM content_types WHERE id = :id");
+        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM content_types WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         $stmt->execute();
-        return $stmt->fetch();
-    }
-
-    // Fetch fields for a given content type, ordered by `order` then id
-    public function getFieldsForContentType(int $contentTypeId)
-    {
-        $stmt = $this->connection->prepare("SELECT id, name, field_type, is_required, is_translatable, `order` FROM fields WHERE content_type_id = :ctid ORDER BY `order` ASC, id ASC");
-        $stmt->bindParam(':ctid', $contentTypeId, PDO::PARAM_INT);
-        $stmt->execute();
-        return $stmt->fetchAll();
-    }
-
-    // Create a field and return its new id
-    public function createField(int $contentTypeId, string $name, string $field_type, bool $is_required = false, bool $is_translatable = false, int $order = 0): int
-    {
-        $name = trim($name);
-        if ($name === '') {
-            throw new InvalidArgumentException('Field name is required');
+        $contentType = null;
+        if ($row = $stmt->fetch()) {
+            $row['schema'] = json_decode($row['schema'], true);
+            $contentType = $row;
         }
-        if (!FieldRegistry::isValidType($field_type)) {
-            throw new InvalidArgumentException('Invalid field type');
+        return $contentType;
+    }
+
+    public function setContentTypeSchema(int $contentTypeId, $fields)
+    {
+        // $fields is an array of associative arrays with keys:
+        // name, type, is_translatable, $name, $type, $is_translatable, optional deleted
+        // - name/type/is_translatable represent the ORIGINAL values (may be null for new fields)
+        // - $name/$type/$is_translatable represent the NEW values
+        // Fields are matched by original name (content type id + name is unique).
+
+        if (!is_array($fields)) {
+            throw new InvalidArgumentException('Fields payload must be an array');
         }
 
-        $stmt = $this->connection->prepare("INSERT INTO fields (content_type_id, name, field_type, is_required, is_translatable, `order`) VALUES (:ctid, :name, :ftype, :req, :trans, :ord)");
-        $req = $is_required ? 1 : 0;
-        $trans = $is_translatable ? 1 : 0;
-        $stmt->bindParam(':ctid', $contentTypeId, PDO::PARAM_INT);
-        $stmt->bindParam(':name', $name);
-        $stmt->bindParam(':ftype', $field_type);
-        $stmt->bindParam(':req', $req, PDO::PARAM_INT);
-        $stmt->bindParam(':trans', $trans, PDO::PARAM_INT);
-        $stmt->bindParam(':ord', $order, PDO::PARAM_INT);
-        $stmt->execute();
-        return (int)$this->connection->lastInsertId();
-    }
-
-    // Update an existing field
-    public function updateField(int $id, string $name, string $field_type, bool $is_required = false, bool $is_translatable = false, int $order = 0): bool
-    {
-        $name = trim($name);
-        if ($name === '') {
-            throw new InvalidArgumentException('Field name is required');
-        }
-        if (!FieldRegistry::isValidType($field_type)) {
-            throw new InvalidArgumentException('Invalid field type');
+        $ct = $this->getContentType($contentTypeId);
+        if ($ct === null) {
+            throw new InvalidArgumentException('Content type not found');
         }
 
-        $stmt = $this->connection->prepare("UPDATE fields SET name = :name, field_type = :ftype, is_required = :req, is_translatable = :trans, `order` = :ord WHERE id = :id");
-        $req = $is_required ? 1 : 0;
-        $trans = $is_translatable ? 1 : 0;
-        $stmt->bindParam(':name', $name);
-        $stmt->bindParam(':ftype', $field_type);
-        $stmt->bindParam(':req', $req, PDO::PARAM_INT);
-        $stmt->bindParam(':trans', $trans, PDO::PARAM_INT);
-        $stmt->bindParam(':ord', $order, PDO::PARAM_INT);
-        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        return $stmt->execute();
+        $tableName = $ct['name'];
+        $localizedTableName = $tableName . '_localized';
+
+        // Current schema structure in DB
+        $currentSchema = $ct['schema'];
+        if (!is_array($currentSchema)) {
+            $currentSchema = ['fields' => []];
+        }
+        if (!isset($currentSchema['fields']) || !is_array($currentSchema['fields'])) {
+            $currentSchema['fields'] = [];
+        }
+
+        // Index current schema by field name for quick lookup
+        $schemaByName = [];
+        foreach ($currentSchema['fields'] as $fieldDef) {
+            if (!isset($fieldDef['field'])) {
+                continue;
+            }
+            $schemaByName[$fieldDef['field']] = $fieldDef;
+        }
+
+        try {
+            // We will build a new schema array from the NEW values
+            $newSchemaFields = [];
+
+            foreach ($fields as $field) {
+                if (!is_array($field)) {
+                    continue;
+                }
+
+                $origName = $field['name'] ?? null;
+                $origType = $field['type'] ?? null;
+                $origTrans = array_key_exists('is_translatable', $field) ? (bool)$field['is_translatable'] : null;
+
+                $newName = $field['$name'] ?? null;
+                $newType = $field['$type'] ?? null;
+                $newTrans = array_key_exists('$is_translatable', $field) ? (bool)$field['$is_translatable'] : null;
+                $deleted = !empty($field['deleted']);
+
+                // Skip if no new name (empty row) and nothing to delete
+                if (($newName === null || $newName === '') && !$deleted) {
+                    continue;
+                }
+
+                // If this represents deletion of an existing field
+                if ($deleted && $origName) {
+                    $origNameQuoted = "`" . str_replace("`", "``", $origName) . "`";
+
+                    if ($origTrans) {
+                        // Column existed in localized table only
+                        $sql = "ALTER TABLE `{$localizedTableName}` DROP COLUMN {$origNameQuoted}";
+                        $this->connection->exec($sql);
+                    } else {
+                        // Column existed in base table only
+                        $sql = "ALTER TABLE `{$tableName}` DROP COLUMN {$origNameQuoted}";
+                        $this->connection->exec($sql);
+                    }
+
+                    // Also remove from schemaByName (if present)
+                    unset($schemaByName[$origName]);
+                    // Do NOT add to $newSchemaFields (field is gone)
+                    continue;
+                }
+
+                // From here on, we are either updating an existing field or creating a new one.
+                $isExisting = $origName !== null && $origName !== '';
+
+                // Basic validation for new state
+                $finalName = $newName;
+                $finalType = $newType;
+                $finalTrans = $newTrans;
+
+                if ($finalName === null || $finalName === '') {
+                    throw new InvalidArgumentException('Field name must not be empty');
+                }
+                if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $finalName)) {
+                    throw new InvalidArgumentException('Field name may only contain letters, digits, and underscores, and must not start with a digit');
+                }
+                if ($finalType === null || $finalType === '') {
+                    throw new InvalidArgumentException('Field type is required');
+                }
+                if ($finalTrans === null) {
+                    $finalTrans = false;
+                }
+
+                // Resolve SQL type via FieldRegistry / FieldType
+                $fieldTypeObj = FieldRegistry::get($finalType);
+                if (!$fieldTypeObj instanceof FieldType) {
+                    throw new InvalidArgumentException('Unknown field type: ' . $finalType);
+                }
+                $columnType = $fieldTypeObj->getSqlType();
+
+                // Enforce uniqueness of NEW field names within this payload
+                if (isset($schemaByName[$finalName]) && (!$isExisting || $finalName !== $origName)) {
+                    throw new InvalidArgumentException('Duplicate field name: ' . $finalName);
+                }
+
+                $finalNameQuoted = "`" . str_replace("`", "``", $finalName) . "`";
+
+                if ($isExisting) {
+                    $origNameQuoted = "`" . str_replace("`", "``", $origName) . "`";
+
+                    // Determine where the column currently lives and where it should live
+                    $wasTrans = (bool)$origTrans;
+                    $willBeTrans = (bool)$finalTrans;
+
+                    // 1) Name change (and/or type change) but same translatable flag
+                    if ($wasTrans === $willBeTrans) {
+                        if ($wasTrans) {
+                            // localized table only
+                            if ($origName !== $finalName) {
+                                $sql = "ALTER TABLE `{$localizedTableName}` CHANGE COLUMN {$origNameQuoted} {$finalNameQuoted} {$columnType}";
+                            } elseif ($origType !== $finalType) {
+                                $sql = "ALTER TABLE `{$localizedTableName}` MODIFY COLUMN {$finalNameQuoted} {$columnType}";
+                            } else {
+                                $sql = null;
+                            }
+                        } else {
+                            // base table only
+                            if ($origName !== $finalName) {
+                                $sql = "ALTER TABLE `{$tableName}` CHANGE COLUMN {$origNameQuoted} {$finalNameQuoted} {$columnType}";
+                            } elseif ($origType !== $finalType) {
+                                $sql = "ALTER TABLE `{$tableName}` MODIFY COLUMN {$finalNameQuoted} {$columnType}";
+                            } else {
+                                $sql = null;
+                            }
+                        }
+
+                        if ($sql !== null) {
+                            $this->connection->exec($sql);
+                        }
+                    } else {
+                        // 2) Toggled translatable flag: move data between tables
+                        if ($wasTrans && !$willBeTrans) {
+                            // Move from localized -> base
+                            // 2.1: add column to base table
+                            $sql = "ALTER TABLE `{$tableName}` ADD COLUMN {$finalNameQuoted} {$columnType} NULL";
+                            $this->connection->exec($sql);
+
+                            // 2.2: copy values for some chosen/default locale (first CMS_LOCALES)
+                            $primaryLocale = CMS_LOCALES[0] ?? '';
+                            if ($primaryLocale !== '') {
+                                $primaryLocaleParam = $primaryLocale;
+                                $sqlUpdate = "UPDATE `{$tableName}` b
+                                    LEFT JOIN `{$localizedTableName}` l
+                                      ON b.id = l.id AND l.locale = :locale
+                                    SET b.{$finalNameQuoted} = l.{$origNameQuoted}";
+                                $stmt = $this->connection->prepare($sqlUpdate);
+                                $stmt->execute([':locale' => $primaryLocaleParam]);
+                            }
+
+                            // 2.3: drop column from localized table
+                            $sql = "ALTER TABLE `{$localizedTableName}` DROP COLUMN {$origNameQuoted}";
+                            $this->connection->exec($sql);
+                        } elseif (!$wasTrans && $willBeTrans) {
+                            // Move from base -> localized
+                            // 2.1: add column to localized table
+                            $sql = "ALTER TABLE `{$localizedTableName}` ADD COLUMN {$finalNameQuoted} {$columnType} NULL";
+                            $this->connection->exec($sql);
+
+                            // 2.2: copy values from base into localized table for primary locale
+                            $primaryLocale = CMS_LOCALES[0] ?? '';
+                            if ($primaryLocale !== '') {
+                                $primaryLocaleParam = $primaryLocale;
+                                // Ensure row exists in localized table for each base row
+                                $sqlInsert = "INSERT IGNORE INTO `{$localizedTableName}` (id, locale)
+                                              SELECT id, :locale FROM `{$tableName}`";
+                                $stmt = $this->connection->prepare($sqlInsert);
+                                $stmt->execute([':locale' => $primaryLocaleParam]);
+
+                                // Now update the new column
+                                $sqlUpdate = "UPDATE `{$localizedTableName}` l
+                                    JOIN `{$tableName}` b ON b.id = l.id
+                                    SET l.{$finalNameQuoted} = b.{$origNameQuoted}
+                                    WHERE l.locale = :locale";
+                                $stmt = $this->connection->prepare($sqlUpdate);
+                                $stmt->execute([':locale' => $primaryLocaleParam]);
+                            }
+
+                            // 2.3: drop column from base table
+                            $sql = "ALTER TABLE `{$tableName}` DROP COLUMN {$origNameQuoted}";
+                            $this->connection->exec($sql);
+                        }
+                    }
+
+                    // Update schemaByName index (handle rename)
+                    unset($schemaByName[$origName]);
+                    $schemaByName[$finalName] = [
+                        'name' => $finalName,
+                        'type' => $finalType,
+                        'is_translatable' => $finalTrans,
+                    ];
+                } else {
+                    // New field: add column to appropriate table
+                    if ($finalTrans) {
+                        $sql = "ALTER TABLE `{$localizedTableName}` ADD COLUMN {$finalNameQuoted} {$columnType} NULL";
+                        $this->connection->exec($sql);
+                    } else {
+                        $sql = "ALTER TABLE `{$tableName}` ADD COLUMN {$finalNameQuoted} {$columnType} NULL";
+                        $this->connection->exec($sql);
+                    }
+
+                    // Add to schema index as well
+                    $schemaByName[$finalName] = [
+                        'name' => $finalName,
+                        'type' => $finalType,
+                        'is_translatable' => $finalTrans,
+                    ];
+                }
+            }
+
+            // Build new schema.fields array from schemaByName (preserve stable order by key)
+            foreach ($schemaByName as $fieldName => $def) {
+                $newSchemaFields[] = $def;
+            }
+
+            $newSchema = [
+                'fields' => $newSchemaFields,
+            ];
+
+            // Persist new schema on content_types
+            $schemaJson = json_encode($newSchema, JSON_UNESCAPED_UNICODE);
+            $stmt = $this->connection->prepare('UPDATE content_types SET schema = :schema WHERE id = :id');
+            $stmt->execute([
+                ':schema' => $schemaJson,
+                ':id' => $contentTypeId,
+            ]);
+
+        } catch (Throwable $e) {
+            throw $e;
+        }
     }
 
-    // Delete a field by id
-    public function deleteField(int $id): bool
-    {
-        $stmt = $this->connection->prepare("DELETE FROM fields WHERE id = :id");
-        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        return $stmt->execute();
-    }
-
-    // Delete a content type (CASCADE will delete fields, entries, and field_values)
     public function deleteContentType(int $id): bool
     {
+        $ct = $this->getContentType($id);
+        $stmt = $this->connection->prepare("DROP TABLE IF EXISTS {$ct['name']}");
+        $stmt->execute();
+        $stmt = $this->connection->prepare("DROP TABLE IF EXISTS {$ct['name']}_localized");
+        $stmt->execute();
         $stmt = $this->connection->prepare("DELETE FROM content_types WHERE id = :id");
-        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        return $stmt->execute();
+        return $stmt->execute([':id' => $id]);
     }
 
-    // List entries for a content type
-    public function getEntriesForContentType(int $contentTypeId)
+    public function getEntriesForContentType(array $contentType, string $locale): array
     {
-        $stmt = $this->connection->prepare("SELECT id FROM entries WHERE content_type_id = :ctid ORDER BY id DESC");
-        $stmt->bindParam(':ctid', $contentTypeId, PDO::PARAM_INT);
+        $table = $contentType['name'];
+        $table_localized = $table . '_localized';
+        $columns_localized = [];
+        foreach ($contentType['schema']['fields'] as $field) {
+            if ($field['is_translatable']) {
+                $columns_localized[] = 'l.' . $field['name'];
+            }
+        }
+        $query = "SELECT b.*, " . implode(', ', $columns_localized) . " FROM {$table} b LEFT JOIN {$table_localized} l ON b.id = l.id AND l.locale = :locale WHERE 1";
+        $stmt = $this->connection->prepare($query);
+        $stmt->bindParam(':locale', $locale);
         $stmt->execute();
         return $stmt->fetchAll();
     }
 
     public function getEntryCountForContentType(int $contentTypeId): int
     {
-        $stmt = $this->connection->prepare("SELECT COUNT(*) FROM entries WHERE content_type_id = :ctid");
-        $stmt->bindParam(':ctid', $contentTypeId, PDO::PARAM_INT);
-        $stmt->execute();
-        return (int)$stmt->fetchColumn();
+        $ct = $this->getContentType($contentTypeId);
+        if ($ct === null) {
+            return 0;
+        }
+        $table = $ct['name'];
+        return (int)$this->connection->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
     }
 
-    public function getEntryById(int $entryId)
+    public function getEntryById(array $ct, int $entryId): array
     {
-        $stmt = $this->connection->prepare("SELECT id, content_type_id FROM entries WHERE id = :id");
-        $stmt->bindParam(':id', $entryId, PDO::PARAM_INT);
+        $table = $ct['name'];
+        $query = "SELECT * FROM {$table} WHERE id = :id";
+        $stmt = $this->connection->prepare($query);
+        $stmt->bindParam(':id', $entryId);
         $stmt->execute();
         return $stmt->fetch();
     }
 
-    // Map of field_id => value for locale NULL
-    public function getFieldValuesForEntry(int $entryId, string $locale): array
+    public function getFieldValuesForEntry(array $contentType, int $entryId, string $locale): array
     {
-        $stmt = $this->connection->prepare("SELECT field_id, value FROM field_values WHERE entry_id = :eid AND locale = :loc");
-        $stmt->bindParam(':eid', $entryId, PDO::PARAM_INT);
-        $stmt->bindParam(':loc', $locale);
+        $fields = $contentType['schema']['fields'];
+        $table = $locale === '' ? $contentType['name'] : $contentType['name'] . '_localized';
+        $query = "SELECT * FROM `{$table}` WHERE id = :id";
+        if (!empty($locale)) {
+            $query .= " AND locale = :locale";
+        }
+        $stmt = $this->connection->prepare($query);
+        $stmt->bindParam(':id', $entryId);
+        if (!empty($locale)) {
+            $stmt->bindParam(':locale', $locale);
+        }
         $stmt->execute();
-        $rows = $stmt->fetchAll();
-        $out = [];
-        foreach ($rows as $r) { $out[(int)$r['field_id']] = $r['value']; }
-        return $out;
+        $row = $stmt->fetch();
+        $values = [];
+        foreach ($fields as $field) {
+            $name = $field['name'];
+            $values[$name] = $row[$name] ?? null;
+        }
+        return $values;
     }
 
-    public function createEntry(int $contentTypeId): int
+    public function createEntry(array $contentType): int
     {
-        $stmt = $this->connection->prepare("INSERT INTO entries (content_type_id) VALUES (:ctid)");
-        $stmt->bindParam(':ctid', $contentTypeId, PDO::PARAM_INT);
-        $stmt->execute();
-        return (int)$this->connection->lastInsertId();
+        $table = $contentType['name'];
+        $sql = "INSERT INTO `{$table}` () VALUES ()";
+        $this->connection->exec($sql);
+        $id = (int)$this->connection->lastInsertId();
+        if ($id <= 0) {
+            throw new RuntimeException('Failed to create entry');
+        }
+        return $id;
     }
 
-    // Save or update values for locale NULL
-    public function saveEntryValues(int $entryId, array $valuesByFieldId, string $locale)
+    /**
+     * Persist values for an entry by field name.
+     *
+     * For non-translatable fields, pass $locale = '' and valuesByFieldName for base table columns.
+     * For translatable fields, pass a real locale string and valuesByFieldName for localized table columns.
+     */
+    public function saveEntryValues(array $ct, int $entryId, array $valuesByFieldName, string $locale)
     {
-        if (empty($valuesByFieldId)) {
+        if (empty($valuesByFieldName)) {
             return;
         }
 
-        // Get field information to determine field types
-        $fieldIds = array_keys($valuesByFieldId);
-        $placeholders = implode(',', array_fill(0, count($fieldIds), '?'));
-        $stmt = $this->connection->prepare("SELECT id, field_type FROM fields WHERE id IN ({$placeholders})");
-        $stmt->execute(array_values($fieldIds));
-        $fieldTypes = [];
-        while ($row = $stmt->fetch()) {
-            $fieldTypes[(int)$row['id']] = $row['field_type'];
+        $table = $ct['name'];
+        $tableLocalized = $table . '_localized';
+
+        // Build a map of fieldName => FieldType for this content type
+        $fieldTypesByName = [];
+        $schemaFields = $ct['schema']['fields'] ?? [];
+        foreach ($schemaFields as $fieldDef) {
+            if (!isset($fieldDef['name'], $fieldDef['type'])) {
+                continue;
+            }
+            try {
+                $fieldTypesByName[$fieldDef['name']] = FieldRegistry::get($fieldDef['type']);
+            } catch (Throwable $e) {
+                // If type is unknown, skip special handling and let raw value through
+            }
         }
 
-        // Use upsert
-        $sql = "INSERT INTO field_values (entry_id, field_id, locale, value) VALUES (:eid, :fid, :loc, :val)
-                ON DUPLICATE KEY UPDATE value = VALUES(value)";
-        $stmt = $this->connection->prepare($sql);
-        foreach ($valuesByFieldId as $fieldId => $val) {
-            $fid = (int)$fieldId;
+        // Normalize values using FieldType::saveToDb where available
+        $preparedValues = [];
+        foreach ($valuesByFieldName as $fieldName => $value) {
+            if (isset($fieldTypesByName[$fieldName]) && $fieldTypesByName[$fieldName] instanceof FieldType) {
+                $preparedValues[$fieldName] = $fieldTypesByName[$fieldName]->saveToDb($value);
+            } else {
+                $preparedValues[$fieldName] = $value;
+            }
+        }
 
-            // Convert value to DB format using FieldType
-            $dbValue = $val;
-            if (isset($fieldTypes[$fid])) {
-                $fieldTypeObj = FieldRegistry::get($fieldTypes[$fid]);
-                if ($fieldTypeObj !== null) {
-                    $dbValue = $fieldTypeObj->saveToDb($val);
-                }
+        // Decide target table: empty locale => base table, otherwise localized
+        if ($locale === '') {
+            // Base table update, one row per entry id
+            $sets = [];
+            foreach ($preparedValues as $fieldName => $value) {
+                $col = '`' . str_replace('`', '``', $fieldName) . '`';
+                $sets[] = "$col = :$fieldName";
+            }
+            if (empty($sets)) {
+                return;
             }
 
-            $stmt->bindParam(':eid', $entryId, PDO::PARAM_INT);
-            $stmt->bindParam(':fid', $fid, PDO::PARAM_INT);
-            $stmt->bindParam(':loc', $locale);
-            $stmt->bindParam(':val', $dbValue);
+            $sql = "UPDATE `{$table}` SET " . implode(', ', $sets) . " WHERE id = :id";
+            $stmt = $this->connection->prepare($sql);
+            foreach ($preparedValues as $fieldName => $value) {
+                $param = ":$fieldName";
+                $stmt->bindValue($param, $value);
+            }
+            $stmt->bindValue(':id', $entryId, PDO::PARAM_INT);
+            $stmt->execute();
+        } else {
+            // Localized table: ensure row exists, then update columns
+            // Upsert row for this (id, locale)
+            $sqlInsert = "INSERT IGNORE INTO `{$tableLocalized}` (id, locale) VALUES (:id, :locale)";
+            $stmt = $this->connection->prepare($sqlInsert);
+            $stmt->execute([
+                ':id' => $entryId,
+                ':locale' => $locale,
+            ]);
+
+            $sets = [];
+            foreach ($preparedValues as $fieldName => $value) {
+                $col = '`' . str_replace('`', '``', $fieldName) . '`';
+                $sets[] = "$col = :$fieldName";
+            }
+            if (empty($sets)) {
+                return;
+            }
+
+            $sql = "UPDATE `{$tableLocalized}` SET " . implode(', ', $sets) . " WHERE id = :id AND locale = :locale";
+            $stmt = $this->connection->prepare($sql);
+            foreach ($preparedValues as $fieldName => $value) {
+                $param = ":$fieldName";
+                $stmt->bindValue($param, $value);
+            }
+            $stmt->bindValue(':id', $entryId, PDO::PARAM_INT);
+            $stmt->bindValue(':locale', $locale);
             $stmt->execute();
         }
     }
 
-    public function deleteEntry(int $entryId): bool
+    public function deleteEntry(array $ct, int $entryId)
     {
-        $stmt = $this->connection->prepare("DELETE FROM entries WHERE id = :id");
-        $stmt->bindParam(':id', $entryId, PDO::PARAM_INT);
-        return $stmt->execute();
+        $stmt = $this->connection->prepare("DELETE FROM {$ct['name']} WHERE id = :id");
+        $stmt->execute([':id' => $entryId]);
+        $stmt = $this->connection->prepare("DELETE FROM {$ct['name']}_localized WHERE id = :id");
+        $stmt->execute([':id' => $entryId]);
     }
 
     public function migrateFieldToTranslatable(int $fieldId, string $primaryLocale)
     {
-        // Copy value from locale='' to primary locale if not already present
-        $stmt = $this->connection->prepare("
-        INSERT INTO field_values (entry_id, field_id, locale, value)
-        SELECT entry_id, field_id, :loc, value
-        FROM field_values
-        WHERE field_id = :fid AND locale = ''
-        ON DUPLICATE KEY UPDATE value = VALUES(value)
-    ");
-        $stmt->bindParam(':fid', $fieldId, PDO::PARAM_INT);
-        $stmt->bindParam(':loc', $primaryLocale);
-        $stmt->execute();
-
-        // Delete all locale='' values for this field
-        $stmt = $this->connection->prepare("DELETE FROM field_values WHERE field_id = :fid AND locale = ''");
-        $stmt->bindParam(':fid', $fieldId, PDO::PARAM_INT);
-        $stmt->execute();
+        // TODO:
+        // create column in localized table
+        // for each record:
+        //   select value from base table
+        //   insert into localized table with value from base table for the primary locale
+        // delete column from base table
     }
 
     public function migrateFieldToNonTranslatable(int $fieldId, string $primaryLocale)
     {
-        // Copy value from primary locale to locale='' if not already present
-        $stmt = $this->connection->prepare("
-        INSERT INTO field_values (entry_id, field_id, locale, value)
-        SELECT entry_id, field_id, '', value
-        FROM field_values
-        WHERE field_id = :fid AND locale = :loc
-        ON DUPLICATE KEY UPDATE value = VALUES(value)
-    ");
-        $stmt->bindParam(':fid', $fieldId, PDO::PARAM_INT);
-        $stmt->bindParam(':loc', $primaryLocale);
-        $stmt->execute();
-
-        // Delete all locale-specific values for this field
-        $stmt = $this->connection->prepare("DELETE FROM field_values WHERE field_id = :fid AND locale != ''");
-        $stmt->bindParam(':fid', $fieldId, PDO::PARAM_INT);
-        $stmt->execute();
+        // TODO:
+        // create column in base table
+        // for each record:
+        //   select value for primary locale from localized table
+        //   update base table with value from localized table
+        // delete column from localized table
     }
 
     // API Methods
-
-    /**
-     * Get singleton data by content type name
-     * @param string $name Content type name
-     * @param array|null $locales Array of locales to fetch, null for all
-     * @return array|null Singleton data or null if not found
-     */
     public function getSingletonByName(string $name, ?array $locales = null, ?array $extraLocales = null, ?array $fieldFilter = null): ?array
     {
-        // Get content type
-        $stmt = $this->connection->prepare("SELECT id, name FROM content_types WHERE name = :name AND is_singleton = 1");
+        // Find content type by name and ensure it is a singleton
+        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM content_types WHERE name = :name LIMIT 1");
         $stmt->bindParam(':name', $name);
         $stmt->execute();
-        $contentType = $stmt->fetch();
-
-        if (!$contentType) {
+        $ct = $stmt->fetch();
+        if (!$ct) {
+            return null;
+        }
+        $ct['schema'] = json_decode($ct['schema'], true) ?: ['fields' => []];
+        if (!(bool)$ct['is_singleton']) {
             return null;
         }
 
-        // Get the singleton entry
-        $stmt = $this->connection->prepare("SELECT id FROM entries WHERE content_type_id = :ctid LIMIT 1");
-        $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
-        $stmt->execute();
-        $entry = $stmt->fetch();
+        $table = $ct['name'];
+        $tableLocalized = $table . '_localized';
 
-        if (!$entry) {
-            return null;
+        // There should be at most one row in the base table
+        $baseRow = $this->connection->query("SELECT * FROM `{$table}` LIMIT 1")->fetch();
+        if (!$baseRow) {
+            return null; // no data yet
         }
 
-        // Get fields
-        $fields = $this->getFieldsForContentType($contentType['id']);
-        if ($fieldFilter !== null) {
-            $fieldFilterSet = array_flip($fieldFilter);
-            $fields = array_values(array_filter($fields, static function($f) use ($fieldFilterSet) {
-                return isset($fieldFilterSet[$f['name']]);
-            }));
+        $result = [
+            'id' => (int)$baseRow['id'],
+        ];
+
+        // Normalize locales: null => use first configured locale if any
+        if ($locales === null) {
+            $locales = CMS_LOCALES;
         }
 
-        $isSingleLocale = is_array($locales) && count($locales) === 1;
-        $data = $this->buildEntryData($entry['id'], $fields, $locales, $extraLocales, $fieldFilter, $isSingleLocale);
-        return $data;
-    }
+        $fieldsInSchema = $ct['schema']['fields'] ?? [];
 
-    /**
-     * Get collection entries by content type name
-     * @param string $name Content type name
-     * @param array|null $locales Array of locales to fetch, null for all
-     * @param int $limit Maximum number of entries to return
-     * @param int $offset Number of entries to skip
-     * @return array Array of entries
-     */
-    public function getCollectionByName(string $name, ?array $locales = null, int $limit = 100, int $offset = 0, ?array $extraLocales = null, ?array $fieldFilter = null, ?array $valueFilter = null, ?array $sort = null): array
-    {
-        // Get content type
-        $stmt = $this->connection->prepare("SELECT id, name FROM content_types WHERE name = :name AND is_singleton = 0");
-        $stmt->bindParam(':name', $name);
-        $stmt->execute();
-        $contentType = $stmt->fetch();
-
-        if (!$contentType) {
-            return [];
-        }
-
-        // Optional value filter: resolve field id + locale
-        $filterFieldId = null;
-        $filterLocale = null;
-        if ($valueFilter !== null) {
-            $filterFieldId = $this->resolveFieldIdForContentType($contentType['id'], $valueFilter['field']);
-            if ($filterFieldId === null) {
-                return [];
+        // Helper: should this field be included based on $fieldFilter
+        $fieldFilterSet = is_array($fieldFilter) ? array_flip($fieldFilter) : null;
+        $shouldInclude = static function (string $fieldName) use ($fieldFilterSet): bool {
+            if ($fieldFilterSet === null) {
+                return true;
             }
-            $filterLocale = $this->determineFilterLocale($contentType['id'], $filterFieldId, $valueFilter['locale'], $locales);
+            return isset($fieldFilterSet[$fieldName]);
+        };
+
+        // Build FieldType map for this content type
+        $fieldTypesByName = [];
+        foreach ($fieldsInSchema as $fieldDef) {
+            if (!isset($fieldDef['name'], $fieldDef['type'])) {
+                continue;
+            }
+            try {
+                $fieldTypesByName[$fieldDef['name']] = FieldRegistry::get($fieldDef['type']);
+            } catch (Throwable $e) {
+                // ignore unknown types
+            }
         }
 
-        // Optional sort: by id or by field value
-        $orderSql = "e.id DESC"; // default
-        $sortFieldId = null;
-        $sortLocale  = null;
-        if ($sort !== null) {
-            if ($sort['field'] === 'id') {
-                $orderSql = 'e.id ' . strtoupper($sort['direction']);
+        // Load localized rows for requested locales in one go
+        $localizedByLocale = [];
+        if (!empty($locales)) {
+            $placeholders = implode(',', array_fill(0, count($locales), '?'));
+            $sql = "SELECT * FROM `{$tableLocalized}` WHERE id = ? AND locale IN ({$placeholders})";
+            $params = array_merge([(int)$baseRow['id']], $locales);
+            $stmtLoc = $this->connection->prepare($sql);
+            $stmtLoc->execute($params);
+            while ($row = $stmtLoc->fetch()) {
+                $localizedByLocale[$row['locale']] = $row;
+            }
+        }
+
+        $multipleLocales = count($locales) > 1;
+
+        foreach ($fieldsInSchema as $field) {
+            $fieldName = $field['name'];
+            if (!$shouldInclude($fieldName)) {
+                continue;
+            }
+            $isTrans = !empty($field['is_translatable']);
+            $ft = $fieldTypesByName[$fieldName] ?? null;
+
+            if ($isTrans) {
+                if ($multipleLocales) {
+                    $valueByLocale = [];
+                    foreach ($locales as $loc) {
+                        $row = $localizedByLocale[$loc] ?? null;
+                        if ($row && array_key_exists($fieldName, $row)) {
+                            $raw = $row[$fieldName];
+                            $val = $ft instanceof FieldType ? $ft->serializeToJson($ft->readFromDb((string)$raw)) : $raw;
+                            $valueByLocale[$loc] = $val;
+                        }
+                    }
+                    $result[$fieldName] = $valueByLocale;
+                } else {
+                    $loc = $locales[0] ?? null;
+                    if ($loc !== null) {
+                        $row = $localizedByLocale[$loc] ?? null;
+                        $raw = $row[$fieldName] ?? null;
+                        $val = $raw;
+                        if ($ft instanceof FieldType && $raw !== null) {
+                            $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                        }
+                        $result[$fieldName] = $val;
+                    }
+                }
             } else {
-                $sortFieldId = $this->resolveFieldIdForContentType($contentType['id'], $sort['field']);
-                if ($sortFieldId !== null) {
-                    $sortLocale = $this->determineFilterLocale($contentType['id'], $sortFieldId, null, $locales);
+                // Non-translatable: read from base table
+                $raw = $baseRow[$fieldName] ?? null;
+                $val = $raw;
+                if ($ft instanceof FieldType && $raw !== null) {
+                    $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                }
+                $result[$fieldName] = $val;
+            }
+        }
+
+        if (is_array($extraLocales) && !empty($extraLocales)) {
+            $table = $ct['name'];
+            $tableLocalized = $table . '_localized';
+            $entryId = (int)$baseRow['id'];
+
+            $extraOut = [];
+            foreach ($extraLocales as $fieldName => $locSpec) {
+                // Respect fieldFilter if present
+                if ($fieldFilterSet !== null && !isset($fieldFilterSet[$fieldName])) {
+                    continue;
+                }
+
+                // Only for translatable fields
+                $fieldMeta = null;
+                foreach ($fieldsInSchema as $f) {
+                    if ($f['name'] === $fieldName) {
+                        $fieldMeta = $f;
+                        break;
+                    }
+                }
+                if ($fieldMeta === null || empty($fieldMeta['is_translatable'])) {
+                    continue;
+                }
+
+                // Determine which locales to fetch
+                if ($locSpec === '*') {
+                    // All locales for this field
+                    $sql = "SELECT locale, `{$fieldName}` AS val FROM `{$tableLocalized}` WHERE id = :id";
+                    $stmtX = $this->connection->prepare($sql);
+                    $stmtX->execute([':id' => $entryId]);
+                } else {
+                    $list = is_array($locSpec) ? $locSpec : [$locSpec];
+                    $list = array_values(array_filter(array_map('trim', $list), fn($x) => $x !== ''));
+                    if (empty($list)) {
+                        continue;
+                    }
+                    $ph = implode(',', array_fill(0, count($list), '?'));
+                    $sql = "SELECT locale, `{$fieldName}` AS val FROM `{$tableLocalized}` WHERE id = ? AND locale IN ({$ph})";
+                    $params = array_merge([$entryId], $list);
+                    $stmtX = $this->connection->prepare($sql);
+                    $stmtX->execute($params);
+                }
+
+                $fieldLocales = [];
+                while ($r = $stmtX->fetch()) {
+                    $fieldLocales[$r['locale']] = $r['val'];
+                }
+                if (!empty($fieldLocales)) {
+                    $extraOut[$fieldName] = $fieldLocales;
                 }
             }
-        }
 
-        // Build base query with optional filter and optional sort field join
-        if ($filterFieldId !== null || $sortFieldId !== null) {
-            $joins = '';
-            $conds = 'e.content_type_id = :ctid';
-
-            if ($filterFieldId !== null) {
-                $joins .= ' JOIN field_values fv_filter ON fv_filter.entry_id = e.id AND fv_filter.field_id = :fid AND fv_filter.locale = :floc AND fv_filter.value = :fval';
+            if (!empty($extraOut)) {
+                $result['extraLocales'] = $extraOut;
             }
-
-            if ($sortFieldId !== null) {
-                $joins .= ' LEFT JOIN field_values fv_sort ON fv_sort.entry_id = e.id AND fv_sort.field_id = :sfid AND fv_sort.locale = :sloc';
-                $orderSql = 'fv_sort.value ' . strtoupper($sort['direction']) . ', e.id DESC';
-            }
-
-            $sql = "SELECT DISTINCT e.id
-                    FROM entries e
-                    $joins
-                    WHERE $conds
-                    ORDER BY $orderSql
-                    LIMIT :limit OFFSET :offset";
-            $stmt = $this->connection->prepare($sql);
-            $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
-            if ($filterFieldId !== null) {
-                $stmt->bindParam(':fid',  $filterFieldId,   PDO::PARAM_INT);
-                $stmt->bindParam(':floc', $filterLocale);
-                $stmt->bindParam(':fval', $valueFilter['value']);
-            }
-            if ($sortFieldId !== null) {
-                $stmt->bindParam(':sfid', $sortFieldId, PDO::PARAM_INT);
-                $stmt->bindParam(':sloc', $sortLocale);
-            }
-            $stmt->bindParam(':limit',  $limit,  PDO::PARAM_INT);
-            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
-            $stmt->execute();
-            $entries = $stmt->fetchAll();
-        } else {
-            // No filter or field-based sort: simple query on entries
-            $sql = "SELECT id FROM entries WHERE content_type_id = :ctid ORDER BY e.id DESC LIMIT :limit OFFSET :offset";
-            $sql = "SELECT id FROM entries WHERE content_type_id = :ctid ORDER BY id DESC LIMIT :limit OFFSET :offset";
-            $stmt = $this->connection->prepare($sql);
-            $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
-            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
-            $stmt->execute();
-            $entries = $stmt->fetchAll();
         }
 
-        if (empty($entries)) {
-            return [];
-        }
-
-        // Get fields
-        $fields = $this->getFieldsForContentType($contentType['id']);
-        if ($fieldFilter !== null) {
-            $fieldFilterSet = array_flip($fieldFilter);
-            $fields = array_values(array_filter($fields, static function($f) use ($fieldFilterSet) {
-                return isset($fieldFilterSet[$f['name']]);
-            }));
-        }
-
-        $isSingleLocale = is_array($locales) && count($locales) === 1;
-        $result = [];
-        foreach ($entries as $entry) {
-            $result[] = $this->buildEntryData($entry['id'], $fields, $locales, $extraLocales, $fieldFilter, $isSingleLocale);
-        }
         return $result;
     }
 
-    /**
-     * Get total count of entries for a collection by content type name
-     * @param string $name Content type name
-     * @return int Total number of entries
-     */
-    public function getCollectionTotalCount(string $name, ?array $valueFilter = null): int
+    public function getCollectionByName(string $name, ?array $locales = null, int $limit = 100, int $offset = 0, ?array $extraLocales = null, ?array $fieldFilter = null, ?array $valueFilter = null, ?array $sort = null): array
     {
-        $stmt = $this->connection->prepare("SELECT id FROM content_types WHERE name = :name AND is_singleton = 0");
+        // Find content type by name and ensure it's a collection
+        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM content_types WHERE name = :name LIMIT 1");
         $stmt->bindParam(':name', $name);
         $stmt->execute();
-        $contentType = $stmt->fetch();
-        if (!$contentType) {
+        $ct = $stmt->fetch();
+        if (!$ct || (bool)$ct['is_singleton']) {
+            return [];
+        }
+        $ct['schema'] = json_decode($ct['schema'], true) ?: ['fields' => []];
+
+        $table = $ct['name'];
+        $tableLocalized = $table . '_localized';
+        $fieldsInSchema = $ct['schema']['fields'] ?? [];
+
+        // Normalize locales
+        if ($locales === null) {
+            $locales = CMS_LOCALES;
+        }
+        $multipleLocales = count($locales) > 1;
+
+        // Field filter helper
+        $fieldFilterSet = is_array($fieldFilter) ? array_flip($fieldFilter) : null;
+        $shouldInclude = static function (string $fieldName) use ($fieldFilterSet): bool {
+            if ($fieldFilterSet === null) {
+                return true;
+            }
+            return isset($fieldFilterSet[$fieldName]);
+        };
+
+        // Build FieldType map for this content type
+        $fieldTypesByName = [];
+        foreach ($fieldsInSchema as $fieldDef) {
+            if (!isset($fieldDef['name'], $fieldDef['type'])) {
+                continue;
+            }
+            try {
+                $fieldTypesByName[$fieldDef['name']] = FieldRegistry::get($fieldDef['type']);
+            } catch (Throwable $e) {
+                // ignore unknown types
+            }
+        }
+
+        // Build base query (without localized fields)
+        $baseSql = "SELECT * FROM `{$table}`";
+        $whereClauses = [];
+        $params = [];
+
+        // Simple filter: field == value, optionally on a specific locale
+        if ($valueFilter && !empty($valueFilter['field']) && array_key_exists('value', $valueFilter)) {
+            $filterField = $valueFilter['field'];
+            $filterValue = $valueFilter['value'];
+            $filterLocale = $valueFilter['locale'] ?? null;
+
+            $fieldMeta = null;
+            foreach ($fieldsInSchema as $f) {
+                if ($f['name'] === $filterField) {
+                    $fieldMeta = $f;
+                    break;
+                }
+            }
+
+            if ($fieldMeta !== null) {
+                $quotedField = '`' . str_replace('`', '``', $filterField) . '`';
+                if (!empty($fieldMeta['is_translatable'])) {
+                    // Join localized table for filter
+                    $baseSql .= " INNER JOIN `{$tableLocalized}` AS flt ON flt.id = {$table}.id";
+                    $whereClauses[] = "flt.{$quotedField} = :flt_value";
+                    $params[':flt_value'] = $filterValue;
+                    if ($filterLocale !== null && $filterLocale !== '') {
+                        $whereClauses[] = "flt.locale = :flt_locale";
+                        $params[':flt_locale'] = $filterLocale;
+                    }
+                } else {
+                    $whereClauses[] = "{$table}.{$quotedField} = :flt_value";
+                    $params[':flt_value'] = $filterValue;
+                }
+            }
+        }
+
+        if (!empty($whereClauses)) {
+            $baseSql .= ' WHERE ' . implode(' AND ', $whereClauses);
+        }
+
+        // Sorting
+        if ($sort && !empty($sort['field'])) {
+            $sortField = $sort['field'];
+            $dir = strtolower($sort['direction'] ?? 'asc');
+            if ($dir !== 'asc' && $dir !== 'desc') {
+                $dir = 'asc';
+            }
+
+            if ($sortField === 'id') {
+                $baseSql .= " ORDER BY {$table}.id {$dir}";
+            } else {
+                // Find schema field
+                $fieldMeta = null;
+                foreach ($fieldsInSchema as $f) {
+                    if ($f['name'] === $sortField) {
+                        $fieldMeta = $f;
+                        break;
+                    }
+                }
+                if ($fieldMeta !== null) {
+                    $quotedField = '`' . str_replace('`', '``', $sortField) . '`';
+                    if (!empty($fieldMeta['is_translatable'])) {
+                        // Order by localized value for first requested locale
+                        $sortLocale = $locales[0] ?? (CMS_LOCALES[0] ?? '');
+                        $baseSql .= " LEFT JOIN `{$tableLocalized}` AS sort_l ON sort_l.id = {$table}.id AND sort_l.locale = :sort_locale";
+                        $params[':sort_locale'] = $sortLocale;
+                        $baseSql .= " ORDER BY sort_l.{$quotedField} {$dir}, {$table}.id {$dir}";
+                    } else {
+                        $baseSql .= " ORDER BY {$table}.{$quotedField} {$dir}, {$table}.id {$dir}";
+                    }
+                } else {
+                    $baseSql .= " ORDER BY {$table}.id {$dir}";
+                }
+            }
+        } else {
+            // Default: newest first
+            $baseSql .= " ORDER BY {$table}.id DESC";
+        }
+
+        // Limit/offset
+        $baseSql .= " LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->connection->prepare($baseSql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll();
+        if (!$rows) {
+            return [];
+        }
+
+        $result = [];
+
+        // Collect all IDs to load localized values in batches
+        $ids = array_map(static fn($r) => (int)$r['id'], $rows);
+
+        $localizedByIdAndLocale = [];
+        if (!empty($locales)) {
+            $inIds = implode(',', array_fill(0, count($ids), '?'));
+            $inLocales = implode(',', array_fill(0, count($locales), '?'));
+            $sqlLoc = "SELECT * FROM `{$tableLocalized}` WHERE id IN ({$inIds}) AND locale IN ({$inLocales})";
+            $paramsLoc = array_merge($ids, $locales);
+            $stmtLoc = $this->connection->prepare($sqlLoc);
+            $stmtLoc->execute($paramsLoc);
+            while ($rowLoc = $stmtLoc->fetch()) {
+                $localizedByIdAndLocale[(int)$rowLoc['id']][$rowLoc['locale']] = $rowLoc;
+            }
+        }
+
+        foreach ($rows as $row) {
+            $entry = [
+                'id' => (int)$row['id'],
+            ];
+
+            foreach ($fieldsInSchema as $field) {
+                $fieldName = $field['name'];
+                if (!$shouldInclude($fieldName)) {
+                    continue;
+                }
+                $isTrans = !empty($field['is_translatable']);
+                $ft = $fieldTypesByName[$fieldName] ?? null;
+
+                if ($isTrans) {
+                    if ($multipleLocales) {
+                        $valueByLocale = [];
+                        foreach ($locales as $loc) {
+                            $locRow = $localizedByIdAndLocale[(int)$row['id']][$loc] ?? null;
+                            if ($locRow && array_key_exists($fieldName, $locRow)) {
+                                $raw = $locRow[$fieldName];
+                                $val = $ft instanceof FieldType ? $ft->serializeToJson($ft->readFromDb((string)$raw)) : $raw;
+                                $valueByLocale[$loc] = $val;
+                            }
+                        }
+                        $entry[$fieldName] = $valueByLocale;
+                    } else {
+                        $loc = $locales[0] ?? null;
+                        if ($loc !== null) {
+                            $locRow = $localizedByIdAndLocale[(int)$row['id']][$loc] ?? null;
+                            $raw = $locRow[$fieldName] ?? null;
+                            $val = $raw;
+                            if ($ft instanceof FieldType && $raw !== null) {
+                                $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                            }
+                            $entry[$fieldName] = $val;
+                        }
+                    }
+                } else {
+                    $raw = $row[$fieldName] ?? null;
+                    $val = $raw;
+                    if ($ft instanceof FieldType && $raw !== null) {
+                        $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                    }
+                    $entry[$fieldName] = $val;
+                }
+            }
+
+            // Implement extraLocales per entry
+            if (is_array($extraLocales) && !empty($extraLocales)) {
+                $tableLocalized = $tableLocalized ?? ($ct['name'] . '_localized');
+                $extraOut = [];
+
+                foreach ($extraLocales as $fieldName => $locSpec) {
+                    if ($fieldFilterSet !== null && !isset($fieldFilterSet[$fieldName])) {
+                        continue;
+                    }
+
+                    $fieldMeta = null;
+                    foreach ($fieldsInSchema as $f) {
+                        if ($f['name'] === $fieldName) {
+                            $fieldMeta = $f;
+                            break;
+                        }
+                    }
+                    if ($fieldMeta === null || empty($fieldMeta['is_translatable'])) {
+                        continue;
+                    }
+
+                    if ($locSpec === '*') {
+                        $sql = "SELECT locale, `{$fieldName}` AS val FROM `{$tableLocalized}` WHERE id = :id";
+                        $stmtX = $this->connection->prepare($sql);
+                        $stmtX->execute([':id' => $entry['id']]);
+                    } else {
+                        $list = is_array($locSpec) ? $locSpec : [$locSpec];
+                        $list = array_values(array_filter(array_map('trim', $list), fn($x) => $x !== ''));
+                        if (empty($list)) {
+                            continue;
+                        }
+                        $ph = implode(',', array_fill(0, count($list), '?'));
+                        $sql = "SELECT locale, `{$fieldName}` AS val FROM `{$tableLocalized}` WHERE id = ? AND locale IN ({$ph})";
+                        $params = array_merge([$entry['id']], $list);
+                        $stmtX = $this->connection->prepare($sql);
+                        $stmtX->execute($params);
+                    }
+
+                    $fieldLocales = [];
+                    while ($r = $stmtX->fetch()) {
+                        $fieldLocales[$r['locale']] = $r['val'];
+                    }
+                    if (!empty($fieldLocales)) {
+                        $extraOut[$fieldName] = $fieldLocales;
+                    }
+                }
+
+                if (!empty($extraOut)) {
+                    $entry['extraLocales'] = $extraOut;
+                }
+            }
+
+            $result[] = $entry;
+        }
+
+        return $result;
+    }
+
+    public function getCollectionTotalCount(string $name, ?array $valueFilter = null): int
+    {
+        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM content_types WHERE name = :name LIMIT 1");
+        $stmt->bindParam(':name', $name);
+        $stmt->execute();
+        $ct = $stmt->fetch();
+        if (!$ct || (bool)$ct['is_singleton']) {
             return 0;
         }
+        $ct['schema'] = json_decode($ct['schema'], true) ?: ['fields' => []];
 
-        if ($valueFilter !== null) {
-            $fieldId = $this->resolveFieldIdForContentType($contentType['id'], $valueFilter['field']);
-            if ($fieldId === null) {
-                return 0;
-            }
-            // For count we treat locale like single-locale default: use provided locale or primary CMS_LOCALes[0]
-            $locale = $valueFilter['locale'] ?? (CMS_LOCALES[0] ?? '');
-            $sql = "SELECT COUNT(DISTINCT e.id) as total
-                    FROM entries e
-                    JOIN field_values fv ON fv.entry_id = e.id AND fv.field_id = :fid AND fv.locale = :loc AND fv.value = :fval
-                    WHERE e.content_type_id = :ctid";
-            $stmt = $this->connection->prepare($sql);
-            $stmt->bindParam(':fid', $fieldId, PDO::PARAM_INT);
-            $stmt->bindParam(':loc', $locale);
-            $stmt->bindParam(':fval', $valueFilter['value']);
-            $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
-            $stmt->execute();
-            $row = $stmt->fetch();
-            return $row ? (int)$row['total'] : 0;
-        }
+        $table = $ct['name'];
+        $tableLocalized = $table . '_localized';
+        $fieldsInSchema = $ct['schema']['fields'] ?? [];
 
-        $stmt = $this->connection->prepare("SELECT COUNT(*) as total FROM entries WHERE content_type_id = :ctid");
-        $stmt->bindParam(':ctid', $contentType['id'], PDO::PARAM_INT);
-        $stmt->execute();
-        $row = $stmt->fetch();
-        return $row ? (int)$row['total'] : 0;
-    }
+        $sql = "SELECT COUNT(*) FROM `{$table}`";
+        $whereClauses = [];
+        $params = [];
 
-    private function resolveFieldIdForContentType(int $contentTypeId, string $fieldName): ?int
-    {
-        $stmt = $this->connection->prepare("SELECT id FROM fields WHERE content_type_id = :ctid AND name = :name LIMIT 1");
-        $stmt->bindParam(':ctid', $contentTypeId, PDO::PARAM_INT);
-        $stmt->bindParam(':name', $fieldName);
-        $stmt->execute();
-        $row = $stmt->fetch();
-        return $row ? (int)$row['id'] : null;
-    }
+        if ($valueFilter && !empty($valueFilter['field']) && array_key_exists('value', $valueFilter)) {
+            $filterField = $valueFilter['field'];
+            $filterValue = $valueFilter['value'];
+            $filterLocale = $valueFilter['locale'] ?? null;
 
-    private function determineFilterLocale(int $contentTypeId, int $fieldId, ?string $overrideLocale, ?array $requestedLocales): string
-    {
-        if ($overrideLocale !== null && $overrideLocale !== '') {
-            return $overrideLocale;
-        }
-        if (is_array($requestedLocales) && count($requestedLocales) > 0) {
-            return (string)$requestedLocales[0];
-        }
-        // default to first configured CMS locale or empty string
-        return CMS_LOCALES[0] ?? '';
-    }
-
-    /**
-     * Build entry data with field values
-     * @param int $entryId Entry ID
-     * @param array $fields Array of field definitions
-     * @param array|null $locales Array of locales to fetch, null for all
-     * @return array Entry data with id and field values
-     */
-    private function buildEntryData(int $entryId, array $fields, ?array $locales = null, ?array $extraLocales = null, ?array $fieldFilter = null, bool $isSingleLocale = false): array
-    {
-        $data = ['id' => $entryId];
-
-        // Map field names to IDs for quick lookup
-        $fieldNameToId = [];
-        foreach ($fields as $f) {
-            $fieldNameToId[$f['name']] = (int)$f['id'];
-        }
-
-        // If a field filter is provided, ensure extraLocales only refers to allowed fields
-        if ($fieldFilter !== null && $extraLocales !== null) {
-            $allowed = array_flip($fieldFilter);
-            $extraLocales = array_intersect_key($extraLocales, $allowed);
-        }
-
-        // Determine locale set for main data
-        $mainLocales = [];
-        if ($locales !== null) {
-            foreach ($locales as $loc) {
-                $loc = (string)$loc;
-                if ($loc !== '') {
-                    $mainLocales[$loc] = true;
+            $fieldMeta = null;
+            foreach ($fieldsInSchema as $f) {
+                if ($f['name'] === $filterField) {
+                    $fieldMeta = $f;
+                    break;
                 }
             }
-        } else {
-            foreach (CMS_LOCALES as $loc) {
-                $loc = (string)$loc;
-                if ($loc !== '') {
-                    $mainLocales[$loc] = true;
-                }
-            }
-        }
 
-        // Build required (field_id, locale) combinations
-        $required = [];
-        foreach ($fields as $f) {
-            $fid = (int)$f['id'];
-            $isTranslatable = (bool)$f['is_translatable'];
-            if (!$isTranslatable) {
-                $required[$fid][''] = true;
-            } else {
-                foreach (array_keys($mainLocales) as $loc) {
-                    $required[$fid][$loc] = true;
-                }
-            }
-        }
-
-        if ($extraLocales !== null) {
-            foreach ($extraLocales as $fieldName => $spec) {
-                if (!isset($fieldNameToId[$fieldName])) continue;
-                $fid = $fieldNameToId[$fieldName];
-                $wanted = [];
-                if ($spec === '*') {
-                    $wanted = CMS_LOCALES;
-                } elseif (is_array($spec)) {
-                    $wanted = $spec;
-                }
-                foreach ($wanted as $loc) {
-                    $loc = (string)$loc;
-                    if ($loc === '') continue;
-                    $required[$fid][$loc] = true;
-                }
-            }
-        }
-
-        if (empty($required)) {
-            $sql = "SELECT field_id, locale, value FROM field_values WHERE entry_id = :eid";
-            $stmt = $this->connection->prepare($sql);
-            $stmt->bindValue(':eid', $entryId, PDO::PARAM_INT);
-            $stmt->execute();
-        } else {
-            $parts = [];
-            $params = [':eid' => $entryId];
-            $i = 0;
-            foreach ($required as $fid => $localesForField) {
-                foreach (array_keys($localesForField) as $loc) {
-                    $fidKey = ":f{$i}";
-                    $locKey = ":l{$i}";
-                    $parts[] = "(field_id = {$fidKey} AND locale = {$locKey})";
-                    $params[$fidKey] = (int)$fid;
-                    $params[$locKey] = (string)$loc;
-                    $i++;
-                }
-            }
-            $wherePairs = implode(' OR ', $parts);
-            $sql = "SELECT field_id, locale, value FROM field_values WHERE entry_id = :eid AND ({$wherePairs})";
-            $stmt = $this->connection->prepare($sql);
-            foreach ($params as $key => $val) {
-                if ($key === ':eid') {
-                    $stmt->bindValue($key, $val, PDO::PARAM_INT);
-                } else {
-                    $stmt->bindValue($key, $val, is_int($val) ? PDO::PARAM_INT : PDO::PARAM_STR);
-                }
-            }
-            $stmt->execute();
-        }
-
-        $values = $stmt->fetchAll();
-
-        $byField = [];
-        foreach ($values as $val) {
-            $fid = (int)$val['field_id'];
-            $loc = (string)$val['locale'];
-            $byField[$fid][$loc] = $val['value'];
-        }
-
-        $extraOut = [];
-        $singleLocaleKey = null;
-        if ($isSingleLocale && $locales !== null && count($locales) === 1) {
-            $singleLocaleKey = (string)$locales[0];
-        }
-
-        foreach ($fields as $field) {
-            $fieldId = (int)$field['id'];
-            $fieldName = $field['name'];
-            $fieldType = $field['field_type'];
-            $isTranslatable = (bool)$field['is_translatable'];
-
-            // Main data
-            if ($isTranslatable) {
-                if ($singleLocaleKey !== null) {
-                    // Flatten to single locale value
-                    if (isset($byField[$fieldId][$singleLocaleKey])) {
-                        $data[$fieldName] = $this->castValue($byField[$fieldId][$singleLocaleKey], $fieldType);
-                    } else {
-                        $data[$fieldName] = null;
+            if ($fieldMeta !== null) {
+                $quotedField = '`' . str_replace('`', '``', $filterField) . '`';
+                if (!empty($fieldMeta['is_translatable'])) {
+                    $sql .= " INNER JOIN `{$tableLocalized}` AS flt ON flt.id = {$table}.id";
+                    $whereClauses[] = "flt.{$quotedField} = :flt_value";
+                    $params[':flt_value'] = $filterValue;
+                    if ($filterLocale !== null && $filterLocale !== '') {
+                        $whereClauses[] = "flt.locale = :flt_locale";
+                        $params[':flt_locale'] = $filterLocale;
                     }
                 } else {
-                    $obj = new stdClass();
-                    if (isset($byField[$fieldId])) {
-                        foreach ($byField[$fieldId] as $loc => $rawVal) {
-                            if ($loc === '') continue;
-                            $obj->$loc = $this->castValue($rawVal, $fieldType);
-                        }
-                    }
-                    $data[$fieldName] = $obj;
-                }
-            } else {
-                $value = null;
-                if (isset($byField[$fieldId][''])) {
-                    $value = $this->castValue($byField[$fieldId][''], $fieldType);
-                }
-                $data[$fieldName] = $value;
-            }
-
-            // Extra locales per field
-            if ($extraLocales !== null && array_key_exists($fieldName, $extraLocales)) {
-                $spec = $extraLocales[$fieldName];
-                $wantedLocales = [];
-                if ($spec === '*') {
-                    $wantedLocales = CMS_LOCALES;
-                } elseif (is_array($spec)) {
-                    $wantedLocales = $spec;
-                }
-
-                if (!empty($wantedLocales)) {
-                    foreach ($wantedLocales as $loc) {
-                        $loc = (string)$loc;
-                        if (!isset($extraOut[$fieldName])) {
-                            $extraOut[$fieldName] = [];
-                        }
-                        if (isset($byField[$fieldId][$loc])) {
-                            $extraOut[$fieldName][$loc] = $this->castValue($byField[$fieldId][$loc], $fieldType);
-                        }
-                    }
+                    $whereClauses[] = "{$table}.{$quotedField} = :flt_value";
+                    $params[':flt_value'] = $filterValue;
                 }
             }
         }
 
-        if (!empty($extraOut)) {
-            $data['extraLocales'] = (object)$extraOut;
+        if (!empty($whereClauses)) {
+            $sql .= ' WHERE ' . implode(' AND ', $whereClauses);
         }
 
-        return $data;
-    }
-
-    /**
-     * Cast value to appropriate type based on field type using FieldRegistry
-     * @param mixed $value The value to cast
-     * @param string $fieldType The field type
-     * @return mixed The casted value
-     */
-    private function castValue($value, string $fieldType)
-    {
-        if ($value === null) {
-            return null;
+        $stmt = $this->connection->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
         }
-
-        $fieldTypeObj = FieldRegistry::get($fieldType);
-        if ($fieldTypeObj === null) {
-            return $value;
-        }
-        return $fieldTypeObj->serializeToJson($fieldTypeObj->readFromDb((string)$value));
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
     }
 
     // Asset Methods

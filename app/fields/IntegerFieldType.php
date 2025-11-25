@@ -4,6 +4,10 @@ class IntegerFieldType extends FieldType {
         parent::__construct("integer");
     }
 
+    public function getSqlType(): string {
+        return 'INT';
+    }
+
     public function saveToDb(mixed $value): string {
         return (string)intval($value);
     }

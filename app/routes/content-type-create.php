@@ -20,9 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (InvalidArgumentException $e) {
             $error = $e->getMessage();
         } catch (PDOException $e) {
-            $error = ($e->getCode() === '23000')
-                ? 'A content type with that name already exists.'
-                : 'Failed to create content type.';
+            $error = 'Failed to create content type.';
         }
     }
 }

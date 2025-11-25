@@ -4,6 +4,10 @@ class TextFieldType extends FieldType {
         parent::__construct("text");
     }
 
+    public function getSqlType(): string {
+        return 'LONGTEXT';
+    }
+
     public function saveToDb(mixed $value): string {
         return (string)$value;
     }

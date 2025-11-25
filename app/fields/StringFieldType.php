@@ -4,6 +4,9 @@ class StringFieldType extends FieldType {
         parent::__construct("string");
     }
 
+    public function getSqlType(): string {
+        return 'VARCHAR(255)';
+    }
     public function saveToDb(mixed $value): string {
         return (string)$value;
     }
