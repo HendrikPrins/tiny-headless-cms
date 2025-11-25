@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (InvalidArgumentException $e) {
                 $errors[] = $e->getMessage();
             } catch (PDOException $e) {
-                $errors[] = ($e->getCode() === '23000') ? 'A content type with that name already exists.' : 'Failed to update name.';
+                $errors[] = 'Failed to update name.';
             }
         } elseif ($action === 'save_all') {
             $fieldsJson = $_POST['fields_json'] ?? '';

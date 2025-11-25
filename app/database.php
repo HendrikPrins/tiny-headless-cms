@@ -134,8 +134,7 @@ class Database {
         }
     }
 
-    // Add: update content type name
-    public function updateContentTypeName(int $id, string $name): bool
+    public function updateContentTypeName(int $id, string $name)
     {
         $name = trim($name);
         if ($name === '') {
@@ -144,9 +143,20 @@ class Database {
         if (strlen($name) > 255) {
             throw new InvalidArgumentException('Name must be 255 characters or fewer');
         }
-        // TODO:
-        // update content_types set name = :name where id = :id
-        // rename table and localized table
+
+        $ct = $this->getContentType($id);
+
+        $stmt = $this->connection->prepare("UPDATE content_types SET name = :name WHERE id = :id");
+        $stmt->bindParam(':name', $name);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $tableName = $name;
+        $localizedTableName = $name . '_localized';
+        $tableNameOld = $ct['name'];
+        $tableNameOld_localized = $tableNameOld . '_localized';
+        $stmt = $this->connection->prepare("RENAME TABLE {$tableNameOld} TO {$tableName}, {$tableNameOld_localized} TO {$localizedTableName}");
+        $stmt->execute();
     }
 
     public function getContentType(int $id)
