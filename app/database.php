@@ -465,7 +465,8 @@ class Database {
             }
         }
         $query = "SELECT b.*, " . implode(', ', $columns_localized) . " FROM {$table} b LEFT JOIN {$table_localized} l ON b.id = l.entry_id AND l.locale = :locale WHERE 1";
-        $stmt = $this->connection->query($query);
+        $stmt = $this->connection->prepare($query);
+        $stmt->bindParam(':locale', $locale);
         return $stmt->fetchAll();
     }
 
@@ -494,7 +495,7 @@ class Database {
 
     }
 
-    public function saveEntryValues(int $entryId, array $valuesByFieldId, string $locale)
+    public function saveEntryValues(int $entryId, array $valuesByFieldName, string $locale)
     {
 
     }
