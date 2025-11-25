@@ -172,33 +172,282 @@ class Database {
         return $contentType;
     }
 
-    public function setContentTypeSchema(int $contentTypeId, $schema)
+    public function setContentTypeSchema(int $contentTypeId, $fields)
     {
-        // Input format:
-        /*
-         [
-          {"name":null,"type":null,"is_translatable":null,
-        "$name":"title","$type":"string","$is_translatable":true},
-        {"name":null,"type":null,"is_translatable":null,
-        "$name":"date","$type":"date","$is_translatable":false}
-        ]
-        */
+        // $fields is an array of associative arrays with keys:
+        // name, type, is_translatable, $name, $type, $is_translatable, optional deleted
+        // - name/type/is_translatable represent the ORIGINAL values (may be null for new fields)
+        // - $name/$type/$is_translatable represent the NEW values
+        // Fields are matched by original name (content type id + name is unique).
 
-        // TODO:
-        // - check if name is unique
-        // - update content_type
-        // - add column to base table if not translatable
-        // - add column to localized table if translatable
+        if (!is_array($fields)) {
+            throw new InvalidArgumentException('Fields payload must be an array');
+        }
+
+        $ct = $this->getContentType($contentTypeId);
+        if ($ct === null) {
+            throw new InvalidArgumentException('Content type not found');
+        }
+
+        $tableName = $ct['name'];
+        $localizedTableName = $tableName . '_localized';
+
+        // Current schema structure in DB
+        $currentSchema = $ct['schema'];
+        if (!is_array($currentSchema)) {
+            $currentSchema = ['fields' => []];
+        }
+        if (!isset($currentSchema['fields']) || !is_array($currentSchema['fields'])) {
+            $currentSchema['fields'] = [];
+        }
+
+        // Index current schema by field name for quick lookup
+        $schemaByName = [];
+        foreach ($currentSchema['fields'] as $fieldDef) {
+            if (!isset($fieldDef['field'])) {
+                continue;
+            }
+            $schemaByName[$fieldDef['field']] = $fieldDef;
+        }
+
+        // Helper: map logical types to MySQL column types
+        $mapType = function (string $logicalType): string {
+            switch ($logicalType) {
+                case 'string':
+                    return 'VARCHAR(255)';
+                case 'text':
+                    return 'TEXT';
+                case 'integer':
+                    return 'INT';
+                case 'decimal':
+                    return 'DECIMAL(10,2)';
+                case 'boolean':
+                    return 'TINYINT(1)';
+                case 'date':
+                    return 'DATE';
+                case 'datetime':
+                    return 'DATETIME';
+                default:
+                    // fallback to TEXT for unknown types
+                    return 'TEXT';
+            }
+        };
+
+        try {
+            // We will build a new schema array from the NEW values
+            $newSchemaFields = [];
+
+            foreach ($fields as $field) {
+                if (!is_array($field)) {
+                    continue;
+                }
+
+                $origName = $field['name'] ?? null;
+                $origType = $field['type'] ?? null;
+                $origTrans = array_key_exists('is_translatable', $field) ? (bool)$field['is_translatable'] : null;
+
+                $newName = $field['$name'] ?? null;
+                $newType = $field['$type'] ?? null;
+                $newTrans = array_key_exists('$is_translatable', $field) ? (bool)$field['$is_translatable'] : null;
+                $deleted = !empty($field['deleted']);
+
+                // Skip if no new name (empty row) and nothing to delete
+                if (($newName === null || $newName === '') && !$deleted) {
+                    continue;
+                }
+
+                // If this represents deletion of an existing field
+                if ($deleted && $origName) {
+                    $origNameQuoted = "`" . str_replace("`", "``", $origName) . "`";
+
+                    if ($origTrans) {
+                        // Column existed in localized table only
+                        $sql = "ALTER TABLE `{$localizedTableName}` DROP COLUMN {$origNameQuoted}";
+                        $this->connection->exec($sql);
+                    } else {
+                        // Column existed in base table only
+                        $sql = "ALTER TABLE `{$tableName}` DROP COLUMN {$origNameQuoted}";
+                        $this->connection->exec($sql);
+                    }
+
+                    // Also remove from schemaByName (if present)
+                    unset($schemaByName[$origName]);
+                    // Do NOT add to $newSchemaFields (field is gone)
+                    continue;
+                }
+
+                // From here on, we are either updating an existing field or creating a new one.
+                $isExisting = $origName !== null && $origName !== '';
+
+                // Basic validation for new state
+                $finalName = $newName;
+                $finalType = $newType;
+                $finalTrans = $newTrans;
+
+                if ($finalName === null || $finalName === '') {
+                    throw new InvalidArgumentException('Field name must not be empty');
+                }
+                if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $finalName)) {
+                    throw new InvalidArgumentException('Field name may only contain letters, digits, and underscores, and must not start with a digit');
+                }
+                if ($finalType === null || $finalType === '') {
+                    throw new InvalidArgumentException('Field type is required');
+                }
+                if ($finalTrans === null) {
+                    $finalTrans = false;
+                }
+
+                // Enforce uniqueness of NEW field names within this payload
+                if (isset($schemaByName[$finalName]) && (!$isExisting || $finalName !== $origName)) {
+                    throw new InvalidArgumentException('Duplicate field name: ' . $finalName);
+                }
+
+                $columnType = $mapType($finalType);
+                $finalNameQuoted = "`" . str_replace("`", "``", $finalName) . "`";
+
+                if ($isExisting) {
+                    $origNameQuoted = "`" . str_replace("`", "``", $origName) . "`";
+
+                    // Determine where the column currently lives and where it should live
+                    $wasTrans = (bool)$origTrans;
+                    $willBeTrans = (bool)$finalTrans;
+
+                    // 1) Name change (and/or type change) but same translatable flag
+                    if ($wasTrans === $willBeTrans) {
+                        if ($wasTrans) {
+                            // localized table only
+                            if ($origName !== $finalName) {
+                                $sql = "ALTER TABLE `{$localizedTableName}` CHANGE COLUMN {$origNameQuoted} {$finalNameQuoted} {$columnType}";
+                            } elseif ($origType !== $finalType) {
+                                $sql = "ALTER TABLE `{$localizedTableName}` MODIFY COLUMN {$finalNameQuoted} {$columnType}";
+                            } else {
+                                $sql = null;
+                            }
+                        } else {
+                            // base table only
+                            if ($origName !== $finalName) {
+                                $sql = "ALTER TABLE `{$tableName}` CHANGE COLUMN {$origNameQuoted} {$finalNameQuoted} {$columnType}";
+                            } elseif ($origType !== $finalType) {
+                                $sql = "ALTER TABLE `{$tableName}` MODIFY COLUMN {$finalNameQuoted} {$columnType}";
+                            } else {
+                                $sql = null;
+                            }
+                        }
+
+                        if ($sql !== null) {
+                            $this->connection->exec($sql);
+                        }
+                    } else {
+                        // 2) Toggled translatable flag: move data between tables
+                        if ($wasTrans && !$willBeTrans) {
+                            // Move from localized -> base
+                            // 2.1: add column to base table
+                            $sql = "ALTER TABLE `{$tableName}` ADD COLUMN {$finalNameQuoted} {$columnType} NULL";
+                            $this->connection->exec($sql);
+
+                            // 2.2: copy values for some chosen/default locale (first CMS_LOCALES)
+                            $primaryLocale = CMS_LOCALES[0] ?? '';
+                            if ($primaryLocale !== '') {
+                                $primaryLocaleParam = $primaryLocale;
+                                $sqlUpdate = "UPDATE `{$tableName}` b
+                                    LEFT JOIN `{$localizedTableName}` l
+                                      ON b.id = l.id AND l.locale = :locale
+                                    SET b.{$finalNameQuoted} = l.{$origNameQuoted}";
+                                $stmt = $this->connection->prepare($sqlUpdate);
+                                $stmt->execute([':locale' => $primaryLocaleParam]);
+                            }
+
+                            // 2.3: drop column from localized table
+                            $sql = "ALTER TABLE `{$localizedTableName}` DROP COLUMN {$origNameQuoted}";
+                            $this->connection->exec($sql);
+                        } elseif (!$wasTrans && $willBeTrans) {
+                            // Move from base -> localized
+                            // 2.1: add column to localized table
+                            $sql = "ALTER TABLE `{$localizedTableName}` ADD COLUMN {$finalNameQuoted} {$columnType} NULL";
+                            $this->connection->exec($sql);
+
+                            // 2.2: copy values from base into localized table for primary locale
+                            $primaryLocale = CMS_LOCALES[0] ?? '';
+                            if ($primaryLocale !== '') {
+                                $primaryLocaleParam = $primaryLocale;
+                                // Ensure row exists in localized table for each base row
+                                $sqlInsert = "INSERT IGNORE INTO `{$localizedTableName}` (id, locale)
+                                              SELECT id, :locale FROM `{$tableName}`";
+                                $stmt = $this->connection->prepare($sqlInsert);
+                                $stmt->execute([':locale' => $primaryLocaleParam]);
+
+                                // Now update the new column
+                                $sqlUpdate = "UPDATE `{$localizedTableName}` l
+                                    JOIN `{$tableName}` b ON b.id = l.id
+                                    SET l.{$finalNameQuoted} = b.{$origNameQuoted}
+                                    WHERE l.locale = :locale";
+                                $stmt = $this->connection->prepare($sqlUpdate);
+                                $stmt->execute([':locale' => $primaryLocaleParam]);
+                            }
+
+                            // 2.3: drop column from base table
+                            $sql = "ALTER TABLE `{$tableName}` DROP COLUMN {$origNameQuoted}";
+                            $this->connection->exec($sql);
+                        }
+                    }
+
+                    // Update schemaByName index (handle rename)
+                    unset($schemaByName[$origName]);
+                    $schemaByName[$finalName] = [
+                        'name' => $finalName,
+                        'type' => $finalType,
+                        'is_translatable' => $finalTrans,
+                    ];
+                } else {
+                    // New field: add column to appropriate table
+                    if ($finalTrans) {
+                        $sql = "ALTER TABLE `{$localizedTableName}` ADD COLUMN {$finalNameQuoted} {$columnType} NULL";
+                        $this->connection->exec($sql);
+                    } else {
+                        $sql = "ALTER TABLE `{$tableName}` ADD COLUMN {$finalNameQuoted} {$columnType} NULL";
+                        $this->connection->exec($sql);
+                    }
+
+                    // Add to schema index as well
+                    $schemaByName[$finalName] = [
+                        'name' => $finalName,
+                        'type' => $finalType,
+                        'is_translatable' => $finalTrans,
+                    ];
+                }
+            }
+
+            // Build new schema.fields array from schemaByName (preserve stable order by key)
+            foreach ($schemaByName as $fieldName => $def) {
+                $newSchemaFields[] = $def;
+            }
+
+            $newSchema = [
+                'fields' => $newSchemaFields,
+            ];
+
+            // Persist new schema on content_types
+            $schemaJson = json_encode($newSchema, JSON_UNESCAPED_UNICODE);
+            $stmt = $this->connection->prepare('UPDATE content_types SET schema = :schema WHERE id = :id');
+            $stmt->execute([
+                ':schema' => $schemaJson,
+                ':id' => $contentTypeId,
+            ]);
+
+        } catch (Throwable $e) {
+            throw $e;
+        }
     }
-
 
     public function deleteContentType(int $id): bool
     {
-        // TODO:
-        // - fetch content type
-        // - delete all entries
-        // - delete base and localized tables
-        // - delete content type
+        $ct = $this->getContentType($id);
+        $stmt = $this->connection->prepare("DROP TABLE IF EXISTS {$ct['name']}");
+        $stmt->execute();
+        $stmt = $this->connection->prepare("DROP TABLE IF EXISTS {$ct['name']}_localized");
+        $stmt->execute();
+        $stmt = $this->connection->prepare("DELETE FROM content_types WHERE id = :id");
+        return $stmt->execute([':id' => $id]);
     }
 
     public function getEntriesForContentType(int $contentTypeId, $locale)
@@ -212,7 +461,7 @@ class Database {
         $columns_localized = [];
         foreach ($ct['schema']['fields'] as $field) {
             if ($field['is_translatable']) {
-                $columns_localized[] = 'l.' . $field['field_name'];
+                $columns_localized[] = 'l.' . $field['field'];
             }
         }
         $query = "SELECT b.*, " . implode(', ', $columns_localized) . " FROM {$table} b LEFT JOIN {$table_localized} l ON b.id = l.entry_id AND l.locale = :locale WHERE 1";
