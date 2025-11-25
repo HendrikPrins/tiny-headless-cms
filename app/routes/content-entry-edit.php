@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo '<div class="alert alert-danger">Singleton already has an entry.</div>';
         } else {
             if ($entryId === 0) {
-                $entryId = $db->createEntry($ctId);
+                $entryId = $db->createEntry($ct);
             }
 
             // Save translatable fields per locale
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $translatableValues[$fieldName] = $fieldType->deserializeFromPost($_POST, $key);
                 }
                 if (!empty($translatableValues)) {
-                    $db->saveEntryValues($entryId, $translatableValues, $locale);
+                    $db->saveEntryValues($ct, $entryId, $translatableValues, $locale);
                 }
             }
 
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             if (!empty($nonTranslatableValues)) {
-                $db->saveEntryValues($entryId, $nonTranslatableValues, '');
+                $db->saveEntryValues($ct, $entryId, $nonTranslatableValues, '');
             }
 
             if ($ct['is_singleton']) {
@@ -67,15 +67,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $entry = null;
 $valuesByLocale = [];
 if ($entryId > 0) {
-    $entry = $db->getEntryById($entryId);
-    if (!$entry || (int)$entry['content_type_id'] !== $ctId) { echo '<h1>Entry not found</h1>'; return; }
+    $entry = $db->getEntryById($ct, $entryId);
+    if (empty($entry)) {
+        echo '<h1>Entry not found</h1>';
+        return;
+    }
 
     // Load values for all locales
     foreach ($locales as $locale) {
-        $valuesByLocale[$locale] = $db->getFieldValuesForEntry($entryId, $locale);
+        $valuesByLocale[$locale] = $db->getFieldValuesForEntry($ct, $entryId, $locale);
     }
     // Load non-translatable values (empty locale)
-    $valuesByLocale[''] = $db->getFieldValuesForEntry($entryId, '');
+    $valuesByLocale[''] = $db->getFieldValuesForEntry($ct, $entryId, '');
 }
 
 foreach (FieldRegistry::getAll() as $ft) {

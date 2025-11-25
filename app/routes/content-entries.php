@@ -25,28 +25,12 @@ $previewLocale = $_GET['locale'] ?? '';
 if (!in_array($previewLocale, CMS_LOCALES)) {
     $previewLocale = CMS_LOCALES[0];
 }
-$entries = $db->getEntriesForContentType($ctId, $previewLocale);
+$entries = $db->getEntriesForContentType($ct, $previewLocale);
 $entryCount = count($entries);
 $fields = $ct["schema"]["fields"];
 
 // Determine which fields to show as preview (max 3)
 $previewFields = array_slice($fields, 0, 3);
-
-// Load field values for all entries (for preview locale)
-$entriesWithValues = [];
-foreach ($entries as $e) {
-    $entryId = (int)$e['id'];
-    // Get values for translatable fields in preview locale
-    $translatableValues = $db->getFieldValuesForEntry($entryId, $previewLocale);
-    // Get values for non-translatable fields (empty locale)
-    $nonTranslatableValues = $db->getFieldValuesForEntry($entryId, '');
-
-    $entriesWithValues[] = [
-        'id' => $entryId,
-        'translatable_values' => $translatableValues,
-        'non_translatable_values' => $nonTranslatableValues,
-    ];
-}
 ?>
 <div class="content-header">
     <nav class="breadcrumb" aria-label="breadcrumb">
@@ -88,15 +72,11 @@ foreach ($entries as $e) {
                     </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($entriesWithValues as $entry): ?>
+                <?php foreach ($entries as $entry): ?>
                     <tr>
                         <td>#<?= $entry['id'] ?></td>
                         <?php foreach ($previewFields as $field):
-    $fid = (int)$field['id'];
-    $isTranslatable = (bool)$field['is_translatable'];
-    $value = $isTranslatable
-        ? ($entry['translatable_values'][$fid] ?? '')
-        : ($entry['non_translatable_values'][$fid] ?? '');
+    $value = $entry[$field['name']];
     $fieldTypeObj = FieldRegistry::get($field['type']);
     if ($fieldTypeObj) {
         $converted = $fieldTypeObj->readFromDb((string)$value);

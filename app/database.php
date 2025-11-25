@@ -69,6 +69,13 @@ class Database {
             $row['schema'] = json_decode($row['schema'], true);
             $rows[] = $row;
         }
+        foreach ($rows as &$row) {
+            if (!$row['is_singleton']) {
+                $row['entries_count'] = (int)$this->connection->query("SELECT COUNT(*) FROM {$row['name']}")->fetchColumn();
+            } else {
+                $row['singleton_entry_id'] = (int)$this->connection->query("SELECT id FROM {$row['name']}")->fetchColumn();
+            }
+        }
         return $rows;
     }
 
@@ -450,23 +457,20 @@ class Database {
         return $stmt->execute([':id' => $id]);
     }
 
-    public function getEntriesForContentType(int $contentTypeId, $locale)
+    public function getEntriesForContentType(array $contentType, string $locale): array
     {
-        $ct = $this->getContentType($contentTypeId);
-        if ($ct === null) {
-            return [];
-        }
-        $table = $ct['name'];
+        $table = $contentType['name'];
         $table_localized = $table . '_localized';
         $columns_localized = [];
-        foreach ($ct['schema']['fields'] as $field) {
+        foreach ($contentType['schema']['fields'] as $field) {
             if ($field['is_translatable']) {
-                $columns_localized[] = 'l.' . $field['field'];
+                $columns_localized[] = 'l.' . $field['name'];
             }
         }
-        $query = "SELECT b.*, " . implode(', ', $columns_localized) . " FROM {$table} b LEFT JOIN {$table_localized} l ON b.id = l.entry_id AND l.locale = :locale WHERE 1";
+        $query = "SELECT b.*, " . implode(', ', $columns_localized) . " FROM {$table} b LEFT JOIN {$table_localized} l ON b.id = l.id AND l.locale = :locale WHERE 1";
         $stmt = $this->connection->prepare($query);
         $stmt->bindParam(':locale', $locale);
+        $stmt->execute();
         return $stmt->fetchAll();
     }
 
@@ -480,24 +484,115 @@ class Database {
         return (int)$this->connection->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
     }
 
-    public function getEntryById(int $entryId)
+    public function getEntryById(array $ct, int $entryId): array
     {
-
+        $table = $ct['name'];
+        $query = "SELECT * FROM {$table} WHERE id = :id";
+        $stmt = $this->connection->prepare($query);
+        $stmt->bindParam(':id', $entryId);
+        $stmt->execute();
+        return $stmt->fetch();
     }
 
-    public function getFieldValuesForEntry(int $entryId, string $locale): array
+    public function getFieldValuesForEntry(array $contentType, int $entryId, string $locale): array
     {
-
+        $fields = $contentType['schema']['fields'];
+        $table = $locale === '' ? $contentType['name'] : $contentType['name'] . '_localized';
+        $query = "SELECT * FROM `{$table}` WHERE id = :id";
+        if (!empty($locale)) {
+            $query .= " AND locale = :locale";
+        }
+        $stmt = $this->connection->prepare($query);
+        $stmt->bindParam(':id', $entryId);
+        if (!empty($locale)) {
+            $stmt->bindParam(':locale', $locale);
+        }
+        $stmt->execute();
+        $row = $stmt->fetch();
+        $values = [];
+        foreach ($fields as $field) {
+            $name = $field['name'];
+            $values[$name] = $row[$name] ?? null;
+        }
+        return $values;
     }
 
-    public function createEntry(int $contentTypeId): int
+    public function createEntry(array $contentType): int
     {
-
+        $table = $contentType['name'];
+        $sql = "INSERT INTO `{$table}` () VALUES ()";
+        $this->connection->exec($sql);
+        $id = (int)$this->connection->lastInsertId();
+        if ($id <= 0) {
+            throw new RuntimeException('Failed to create entry');
+        }
+        return $id;
     }
 
-    public function saveEntryValues(int $entryId, array $valuesByFieldName, string $locale)
+    /**
+     * Persist values for an entry by field name.
+     *
+     * For non-translatable fields, pass $locale = '' and valuesByFieldName for base table columns.
+     * For translatable fields, pass a real locale string and valuesByFieldName for localized table columns.
+     */
+    public function saveEntryValues(array $ct, int $entryId, array $valuesByFieldName, string $locale)
     {
+        if (empty($valuesByFieldName)) {
+            return;
+        }
 
+        $table = $ct['name'];
+        $tableLocalized = $table . '_localized';
+
+        // Decide target table: empty locale => base table, otherwise localized
+        if ($locale === '') {
+            // Base table update, one row per entry id
+            $sets = [];
+            foreach ($valuesByFieldName as $fieldName => $value) {
+                $col = '`' . str_replace('`', '``', $fieldName) . '`';
+                $sets[] = "$col = :$fieldName";
+            }
+            if (empty($sets)) {
+                return;
+            }
+
+            $sql = "UPDATE `{$table}` SET " . implode(', ', $sets) . " WHERE id = :id";
+            $stmt = $this->connection->prepare($sql);
+            foreach ($valuesByFieldName as $fieldName => $value) {
+                $param = ":$fieldName";
+                $stmt->bindValue($param, $value);
+            }
+            $stmt->bindValue(':id', $entryId, PDO::PARAM_INT);
+            $stmt->execute();
+        } else {
+            // Localized table: ensure row exists, then update columns
+            // Upsert row for this (id, locale)
+            $sqlInsert = "INSERT IGNORE INTO `{$tableLocalized}` (id, locale) VALUES (:id, :locale)";
+            $stmt = $this->connection->prepare($sqlInsert);
+            $stmt->execute([
+                ':id' => $entryId,
+                ':locale' => $locale,
+            ]);
+
+            $sets = [];
+            foreach ($valuesByFieldName as $fieldName => $value) {
+                $col = '`' . str_replace('`', '``', $fieldName) . '`';
+                $sets[] = "$col = :$fieldName";
+            }
+            if (empty($sets)) {
+                return;
+            }
+
+            $sql = "UPDATE `{$tableLocalized}` SET " . implode(', ', $sets) . " WHERE id = :id AND locale = :locale";
+            $stmt = $this->connection->prepare($sql);
+            foreach ($valuesByFieldName as $fieldName => $value) {
+                $param = ":$fieldName";
+                $stmt->bindValue($param, $value);
+            }
+            $stmt->bindValue(':id', $entryId, PDO::PARAM_INT);
+            $stmt->bindValue(':locale', $locale);
+            $stmt->execute();
+        }
     }
 
     public function deleteEntry(int $entryId): bool
