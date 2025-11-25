@@ -595,9 +595,12 @@ class Database {
         }
     }
 
-    public function deleteEntry(int $entryId): bool
+    public function deleteEntry(array $ct, int $entryId)
     {
-
+        $stmt = $this->connection->prepare("DELETE FROM {$ct['name']} WHERE id = :id");
+        $stmt->execute([':id' => $entryId]);
+        $stmt = $this->connection->prepare("DELETE FROM {$ct['name']}_localized WHERE id = :id");
+        $stmt->execute([':id' => $entryId]);
     }
 
     public function migrateFieldToTranslatable(int $fieldId, string $primaryLocale)

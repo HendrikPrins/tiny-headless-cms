@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     } else {
         $entryId = (int)($_POST['entry_id'] ?? 0);
         if ($entryId > 0) {
-            $db->deleteEntry($entryId);
+            $db->deleteEntry($ct, $entryId);
             header('Location: index.php?page=content-entries&ct=' . $ctId, true, 303);
             exit;
         }
