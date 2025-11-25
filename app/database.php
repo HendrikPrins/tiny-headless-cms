@@ -661,7 +661,7 @@ class Database {
 
         // Normalize locales: null => use first configured locale if any
         if ($locales === null) {
-            $locales = CMS_LOCALES ? [CMS_LOCALES[0]] : [];
+            $locales = CMS_LOCALES;
         }
 
         $fieldsInSchema = $ct['schema']['fields'] ?? [];
@@ -824,7 +824,7 @@ class Database {
 
         // Normalize locales
         if ($locales === null) {
-            $locales = CMS_LOCALES ? [CMS_LOCALES[0]] : [];
+            $locales = CMS_LOCALES;
         }
         $multipleLocales = count($locales) > 1;
 
