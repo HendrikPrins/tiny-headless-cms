@@ -5,22 +5,26 @@ $is_singleton = isset($_GET['singleton']) && $_GET['singleton'] === 'true' || fa
 $title = $is_singleton ? 'Create Singleton' : 'Create Collection';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = isset($_POST['name']) ? trim($_POST['name']) : '';
-    $is_singleton = !empty($_POST['is_singleton']);
-    if ($name === '') {
-        $error = 'Name is required.';
-    } elseif (strlen($name) > 255) {
-        $error = 'Name must be 255 characters or fewer.';
+    if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
+        echo '<div class="alert alert-danger">Invalid request.</div>';
     } else {
-        try {
-            $id = Database::getInstance()->createContentType($name, $is_singleton);
-            while (ob_get_level() > 0) { ob_end_clean(); }
-            header('Location: index.php?page=content-type-edit&id=' . $id, true, 303);
-            exit;
-        } catch (InvalidArgumentException $e) {
-            $error = $e->getMessage();
-        } catch (PDOException $e) {
-            $error = 'Failed to create content type.';
+        $name = isset($_POST['name']) ? trim($_POST['name']) : '';
+        $is_singleton = !empty($_POST['is_singleton']);
+        if ($name === '') {
+            $error = 'Name is required.';
+        } elseif (strlen($name) > 255) {
+            $error = 'Name must be 255 characters or fewer.';
+        } else {
+            try {
+                $id = Database::getInstance()->createContentType($name, $is_singleton);
+                while (ob_get_level() > 0) { ob_end_clean(); }
+                header('Location: index.php?page=content-type-edit&id=' . $id, true, 303);
+                exit;
+            } catch (InvalidArgumentException $e) {
+                $error = $e->getMessage();
+            } catch (PDOException $e) {
+                $error = 'Failed to create content type.';
+            }
         }
     }
 }
@@ -40,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php endif; ?>
 
 <form method="post" class="form form-limited">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="is_singleton" value="<?= $is_singleton ? '1' : '0' ?>">
     <label for="name">Name</label>
     <input
