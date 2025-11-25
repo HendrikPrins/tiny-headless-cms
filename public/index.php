@@ -48,6 +48,7 @@ if (!Database::getInstance()->hasSchema()) {
 } elseif (!$isLoggedIn) {
     include __DIR__ . '/../app/routes/login.php';
 } elseif (in_array($page, $routes)) {
+    requireLogin();
     include __DIR__ . "/../app/routes/{$page}.php";
 } else {
     http_response_code(404);

@@ -56,3 +56,52 @@ require __DIR__ . '/database.php';
 require __DIR__ . '/icons.php';
 require __DIR__ . '/fields/FieldRegistry.php';
 FieldRegistry::loadFieldTypes(__DIR__ . '/fields');
+
+// --- Auth & Role Helpers ---
+if (!defined('ROLE_ADMIN')) {
+    define('ROLE_ADMIN', 'admin');
+}
+if (!defined('ROLE_EDITOR')) {
+    define('ROLE_EDITOR', 'editor');
+}
+
+function getCurrentUserId(): ?int {
+    return isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+}
+
+function getCurrentUserRole(): ?string {
+    $role = $_SESSION['user_role'] ?? null;
+    if ($role === ROLE_ADMIN || $role === ROLE_EDITOR) {
+        return $role;
+    }
+    return null;
+}
+
+function isLoggedIn(): bool {
+    return getCurrentUserId() !== null;
+}
+
+function isAdmin(): bool {
+    return getCurrentUserRole() === ROLE_ADMIN;
+}
+
+function requireLogin(): void {
+    if (!isLoggedIn()) {
+        header('Location: index.php?page=login', true, 303);
+        exit;
+    }
+}
+
+function requireAnyRole(array $roles): void {
+    requireLogin();
+    $role = getCurrentUserRole();
+    if ($role === null || !in_array($role, $roles, true)) {
+        http_response_code(403);
+        echo '<h1>Forbidden</h1><p>You do not have permission to perform this action.</p>';
+        exit;
+    }
+}
+
+function requireAdmin(): void {
+    requireAnyRole([ROLE_ADMIN]);
+}

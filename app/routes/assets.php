@@ -1,4 +1,6 @@
 <?php
+// No additional role restrictions; both admins and editors may manage assets.
+
 $title = 'Assets';
 $db = Database::getInstance();
 

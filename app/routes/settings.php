@@ -19,6 +19,7 @@ document.getElementById('logout-btn').addEventListener('click', function() {
 });
 </script>
 
+<?php if (isAdmin()): ?>
 <h2>Users</h2>
 <div style="margin-bottom:12px;">
     <a href="index.php?page=user-add" class="btn-primary">Create User</a>
@@ -62,6 +63,7 @@ document.getElementById('logout-btn').addEventListener('click', function() {
         </tbody>
     </table>
 </div>
+<?php endif; ?>
 <?php endif; ?>
 
 <h2>Locales</h2>

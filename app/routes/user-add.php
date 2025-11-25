@@ -1,4 +1,6 @@
 <?php
+requireAdmin();
+
 $title = 'Create User';
 $db = Database::getInstance();
 $error = null;
@@ -67,4 +69,3 @@ $csrf = htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8');
         <a href="index.php?page=settings" class="btn-secondary">Cancel</a>
     </div>
 </form>
-

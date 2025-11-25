@@ -36,12 +36,10 @@ class FieldRegistry {
                 $className = basename($file, '.php');
 
                 if (!class_exists($className)) {
-                    trigger_error("Class '{$className}' not found in file '{$file}'.", E_USER_WARNING);
                     continue;
                 }
 
                 if (!is_subclass_of($className, FieldType::class)) {
-                    trigger_error("Class '{$className}' does not extend FieldType.", E_USER_WARNING);
                     continue;
                 }
 

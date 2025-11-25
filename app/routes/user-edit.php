@@ -1,4 +1,6 @@
 <?php
+requireLogin();
+
 $title = 'Edit User';
 $db = Database::getInstance();
 $error = null; $notice = null;
@@ -7,6 +9,14 @@ $user = $id > 0 ? $db->getUserById($id) : null;
 if (!$user) { echo '<div class="alert alert-danger">User not found.</div>'; return; }
 
 $isCurrent = $user['id'] == $_SESSION['user_id'];
+
+// Only admins may edit other users; non-admins may only edit themselves
+if (!isAdmin() && !$isCurrent) {
+    http_response_code(403);
+    echo '<div class="alert alert-danger">You do not have permission to edit this user.</div>';
+    return;
+}
+
 $username = $user['username'];
 $role = $user['role'];
 
@@ -16,7 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $action = $_POST['action'] ?? 'update';
         if ($action === 'delete') {
-            if ($isCurrent) {
+            // Only admins may delete users and never themselves
+            if (!isAdmin()) {
+                $error = 'You do not have permission to delete users.';
+            } elseif ($isCurrent) {
                 $error = 'You cannot delete your own user.';
             } else {
                 $db->deleteUser($user['id']);
@@ -27,7 +40,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else { // update
             $newUsername = trim($_POST['username'] ?? '');
             $newPassword = $_POST['password'] ?? '';
-            $newRole = $_POST['role'] ?? $role;
+            // Non-admins cannot change roles (even their own)
+            if (isAdmin()) {
+                $newRole = $_POST['role'] ?? $role;
+            } else {
+                $newRole = $role;
+            }
             if ($newUsername === '') {
                 $error = 'Username is required.';
             } elseif (strlen($newUsername) > 50) {
@@ -38,9 +56,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Invalid role.';
             } else {
                 try {
-                    $db->updateUser($user['id'], $newUsername, $newPassword !== '' ? $newPassword : null, $newRole, !$isCurrent);
+                    // Only admins may change roles of other users
+                    $allowRoleChange = isAdmin() && !$isCurrent;
+                    $db->updateUser($user['id'], $newUsername, $newPassword !== '' ? $newPassword : null, $newRole, $allowRoleChange);
                     $username = $newUsername;
-                    if (!$isCurrent) { $role = $newRole; }
+                    if ($allowRoleChange) { $role = $newRole; }
                     $notice = 'User updated.';
                 } catch (Exception $e) {
                     $error = 'Failed to update user.';
@@ -70,15 +90,16 @@ $csrf = htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8');
     <label class="field"><span>New Password <span class="text-secondary">(leave empty to keep current)</span></span>
         <input type="password" name="password" autocomplete="new-password">
     </label>
+    <?php if (isAdmin() && !$isCurrent): ?>
     <label class="field"><span>Role</span>
-        <select name="role" <?= $isCurrent ? 'disabled' : '' ?>>
+        <select name="role">
             <option value="editor" <?= $role==='editor'?'selected':''; ?>>Editor</option>
             <option value="admin" <?= $role==='admin'?'selected':''; ?>>Admin</option>
         </select>
     </label>
+    <?php endif; ?>
     <div class="form-buttons">
         <button type="submit" class="btn-primary">Save</button>
         <a href="index.php?page=settings" class="btn-secondary">Cancel</a>
     </div>
 </form>
-

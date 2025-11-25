@@ -1,4 +1,6 @@
 <?php
+requireAdmin();
+
 $error = null;
 $name = '';
 $is_singleton = isset($_GET['singleton']) && $_GET['singleton'] === 'true' || false;

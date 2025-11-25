@@ -7,9 +7,12 @@ if (!$ct) { echo '<h1>Content type not found</h1>'; return; }
 $title = 'Entries for: ' . htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8');
 $isSingleton = $ct['is_singleton'];
 
-// Handle delete
+// Handle delete (admins only)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
-    if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
+    if (!isAdmin()) {
+        http_response_code(403);
+        echo '<div class="alert alert-danger">You do not have permission to delete entries.</div>';
+    } elseif (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
         echo '<div class="alert alert-danger">Invalid request.</div>';
     } else {
         $entryId = (int)($_POST['entry_id'] ?? 0);
@@ -45,13 +48,17 @@ $previewFields = array_slice($fields, 0, 3);
 <?php if ($ct['is_singleton']): ?>
     <?php if ($entryCount === 0): ?>
         <p>No entry yet.</p>
+        <?php if (isAdmin()): ?>
         <p><a class="btn btn-primary" href="?page=content-entry-edit&ct=<?= (int)$ctId ?>">Create Entry</a></p>
+        <?php endif; ?>
     <?php else: ?>
         <?php $first = $entries[0]; ?>
         <p><a class="btn btn-primary" href="?page=content-entry-edit&ct=<?= (int)$ctId ?>&id=<?= (int)$first['id'] ?>">Edit Singleton</a></p>
     <?php endif; ?>
 <?php else: ?>
+    <?php if (isAdmin()): ?>
     <p><a class="btn btn-primary" href="?page=content-entry-edit&ct=<?= (int)$ctId ?>">New Entry</a></p>
+    <?php endif; ?>
     <?php if (empty($entries)): ?>
         <p>No entries yet.</p>
     <?php else: ?>
@@ -89,12 +96,14 @@ $previewFields = array_slice($fields, 0, 3);
                         <?php endforeach; ?>
                         <td style="white-space:nowrap;">
                             <a class="btn btn-icon btn-primary" href="?page=content-entry-edit&ct=<?= $ctId ?>&id=<?= $entry['id'] ?>"><?=ICON_PENCIL?></a>
+                            <?php if (isAdmin()): ?>
                             <form class="form-table-delete" method="post" onsubmit="return confirm('Delete this entry?');">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="entry_id" value="<?= $entry['id'] ?>">
                                 <button type="submit" class="btn-icon btn-danger"><?=ICON_TRASH?></button>
                             </form>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>

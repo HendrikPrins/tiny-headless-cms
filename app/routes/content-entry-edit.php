@@ -16,50 +16,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
         echo '<div class="alert alert-danger">Invalid request.</div>';
     } else {
-        // Singleton guard: only one entry allowed
-        if ($ct['is_singleton'] && $entryId === 0 && $db->getEntryCountForContentType($ctId) > 0) {
-            echo '<div class="alert alert-danger">Singleton already has an entry.</div>';
+        // Disallow editors from creating new entries
+        if ($entryId === 0 && !isAdmin()) {
+            echo '<div class="alert alert-danger">You do not have permission to create entries.</div>';
         } else {
-            if ($entryId === 0) {
-                $entryId = $db->createEntry($ct);
-            }
+            // Singleton guard: only one entry allowed
+            if ($ct['is_singleton'] && $entryId === 0 && $db->getEntryCountForContentType($ctId) > 0) {
+                echo '<div class="alert alert-danger">Singleton already has an entry.</div>';
+            } else {
+                if ($entryId === 0) {
+                    $entryId = $db->createEntry($ct);
+                }
 
-            // Save translatable fields per locale
-            foreach ($locales as $locale) {
-                $translatableValues = [];
+                // Save translatable fields per locale
+                foreach ($locales as $locale) {
+                    $translatableValues = [];
+                    foreach ($fields as $f) {
+                        $fieldName = $f['name'];
+                        $isTranslatable = (bool)$f['is_translatable'];
+                        if (!$isTranslatable) { continue; }
+                        $key = 'field_' . $fieldName . '_' . $locale;
+                        $fieldType = FieldRegistry::get($f['type']);
+                        $translatableValues[$fieldName] = $fieldType->deserializeFromPost($_POST, $key);
+                    }
+                    if (!empty($translatableValues)) {
+                        $db->saveEntryValues($ct, $entryId, $translatableValues, $locale);
+                    }
+                }
+
+                // Save non-translatable fields with empty locale
+                $nonTranslatableValues = [];
                 foreach ($fields as $f) {
                     $fieldName = $f['name'];
-                    $isTranslatable = (bool)$f['is_translatable'];
-                    if (!$isTranslatable) { continue; }
-                    $key = 'field_' . $fieldName . '_' . $locale;
-                    $fieldType = FieldRegistry::get($f['type']);
-                    $translatableValues[$fieldName] = $fieldType->deserializeFromPost($_POST, $key);
+                    if (!(bool)$f['is_translatable']) {
+                        $key = 'field_' . $fieldName;
+                        $fieldType = FieldRegistry::get($f['type']);
+                        $nonTranslatableValues[$fieldName] = $fieldType->deserializeFromPost($_POST, $key);
+                    }
                 }
-                if (!empty($translatableValues)) {
-                    $db->saveEntryValues($ct, $entryId, $translatableValues, $locale);
+                if (!empty($nonTranslatableValues)) {
+                    $db->saveEntryValues($ct, $entryId, $nonTranslatableValues, '');
                 }
-            }
 
-            // Save non-translatable fields with empty locale
-            $nonTranslatableValues = [];
-            foreach ($fields as $f) {
-                $fieldName = $f['name'];
-                if (!(bool)$f['is_translatable']) {
-                    $key = 'field_' . $fieldName;
-                    $fieldType = FieldRegistry::get($f['type']);
-                    $nonTranslatableValues[$fieldName] = $fieldType->deserializeFromPost($_POST, $key);
+                if ($ct['is_singleton']) {
+                    header('Location: index.php?page=content-type', true, 303);
+                } else {
+                    header('Location: index.php?page=content-entries&ct=' . $ctId, true, 303);
                 }
+                exit;
             }
-            if (!empty($nonTranslatableValues)) {
-                $db->saveEntryValues($ct, $entryId, $nonTranslatableValues, '');
-            }
-
-            if ($ct['is_singleton']) {
-                header('Location: index.php?page=content-type', true, 303);
-            } else {
-                header('Location: index.php?page=content-entries&ct=' . $ctId, true, 303);
-            }
-            exit;
         }
     }
 }

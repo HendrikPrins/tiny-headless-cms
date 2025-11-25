@@ -1,4 +1,6 @@
 <?php
+requireAdmin();
+
 $errors = [];
 $messages = [];
 $fieldTypes = FieldRegistry::getTypeNames();
