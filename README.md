@@ -149,3 +149,47 @@ Each image block is stored as:
   }
 }
 ```
+
+
+## Database structure
+
+```sql
+CREATE TABLE `content_type`
+(
+    `id` int(11) NOT NULL AUTO_INCREMENT,
+    `name` varchar(255) NOT NULL,
+    `is_singleton` tinyint(1) NOT NULL DEFAULT '0',
+    `schema` longtext NOT NULL COMMENT 'JSON-encoded schema',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+An example of a content_type is:
+- name: news
+- is_singleton: 0
+- schema: `{"fields":[{"name":"title","type":"string", "is_translatable": true}, {"name":"date","type":"date"},{"name":"summary","type":"text","is_translatable": true}]}`.
+
+The order of the fields array in the schema determines the order in which they are displayed in the CMS or returned via the API.
+
+The CMS will create the following tables for such a content type:
+
+```sql
+CREATE TABLE `news`
+(
+    `id` int(11) NOT NULL AUTO_INCREMENT,
+    `content_type_id` int(11) NOT NULL,
+    `date` datetime NOT NULL,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `news_localized`
+(
+    `id` int(11) NOT NULL AUTO_INCREMENT,
+    `locale` varchar(255) NOT NULL,
+    `title` varchar(255) NOT NULL,
+    `summary` text NOT NULL,
+    PRIMARY KEY (`id`,`locale`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+What this example demonstrates is that the translatable fields are stored in a separate table, with a foreign key to the main table.
+

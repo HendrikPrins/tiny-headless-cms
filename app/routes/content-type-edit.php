@@ -67,7 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 'id' => (int)$f['id'],
                                 'name' => $f['name'],
                                 'field_type' => $f['field_type'],
-                                'is_required' => (bool)$f['is_required'],
                                 'is_translatable' => (bool)$f['is_translatable'],
                                 'order' => (int)$f['order']
                         ];
@@ -77,7 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $deleted = !empty($item['deleted']);
                         $name = isset($item['name']) ? trim((string)$item['name']) : '';
                         $type = isset($item['field_type']) ? trim((string)$item['field_type']) : '';
-                        $is_required = !empty($item['is_required']);
                         $is_translatable = !empty($item['is_translatable']);
                         $order = isset($item['order']) ? (int)$item['order'] : 0;
 
@@ -93,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (!FieldRegistry::isValidType($type)) {
                                 throw new InvalidArgumentException('Invalid field type for updates');
                             }
-                            $db->updateField($fid, $name, $type, $is_required, $is_translatable, $order);
+                            $db->updateField($fid, $name, $type, $is_translatable, $order);
                             $oldField = $oldFields[$fid] ?? null;
                             if ($oldField && ($oldField['is_translatable'] !== $is_translatable)) {
                                 $primaryLocale = CMS_LOCALES[0];
@@ -113,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (!FieldRegistry::isValidType($type)) {
                                 throw new InvalidArgumentException('Invalid field type for create');
                             }
-                            $db->createField($id, $name, $type, $is_required, $is_translatable, $order);
+                            $db->createField($id, $name, $type, $is_translatable, $order);
                         }
                     }
 
@@ -141,7 +139,6 @@ $jsFields = array_map(function ($f) {
             'id' => (int)$f['id'],
             'name' => $f['name'],
             'field_type' => $f['field_type'],
-            'is_required' => (bool)$f['is_required'],
             'is_translatable' => (bool)$f['is_translatable'],
             'order' => (int)$f['order']
     ];
@@ -197,9 +194,6 @@ $jsFields = array_map(function ($f) {
                 </select>
             </td>
             <td style="text-align:center;">
-                <input type="checkbox" data-column="is_required">
-            </td>
-            <td style="text-align:center;">
                 <input type="checkbox" data-column="is_translatable">
             </td>
             <td style="white-space:nowrap;">
@@ -215,7 +209,6 @@ $jsFields = array_map(function ($f) {
             <tr>
                 <th>Name</th>
                 <th>Type</th>
-                <th style="text-align:center;">Required</th>
                 <th style="text-align:center;">Translatable</th>
                 <th></th>
             </tr>
@@ -265,7 +258,6 @@ $jsFields = array_map(function ($f) {
                     id: id && id !== 'null' ? parseInt(id) : 0,
                     name: row.querySelector('[data-column="field_name"]').value.trim(),
                     field_type: row.querySelector('[data-column="field_type"]').value,
-                    is_required: row.querySelector('[data-column="is_required"]').checked,
                     is_translatable: row.querySelector('[data-column="is_translatable"]').checked,
                     order: idx
                 };
@@ -304,9 +296,6 @@ $jsFields = array_map(function ($f) {
                     }
                     if (field.field_type !== orig.field_type) {
                         fieldChanges.push(`type: ${orig.field_type} → ${field.field_type}`);
-                    }
-                    if (field.is_required !== orig.is_required) {
-                        fieldChanges.push(`required: ${orig.is_required ? 'yes' : 'no'} → ${field.is_required ? 'yes' : 'no'}`);
                     }
                     if (field.is_translatable !== orig.is_translatable) {
                         fieldChanges.push(`translatable: ${orig.is_translatable ? 'yes' : 'no'} → ${field.is_translatable ? 'yes' : 'no'}`);
@@ -390,15 +379,13 @@ $jsFields = array_map(function ($f) {
             row.setAttribute("data-field-id", field.id || null);
             const nameInput = row.querySelector('[data-column="field_name"]');
             const typeSelect = row.querySelector('[data-column="field_type"]');
-            const reqCheck = row.querySelector('[data-column="is_required"]');
             const transCheck = row.querySelector('[data-column="is_translatable"]');
 
             nameInput.value = field.name || '';
             typeSelect.value = field.field_type || 'string';
-            reqCheck.checked = field.is_required || false;
             transCheck.checked = field.is_translatable || false;
 
-            [nameInput, typeSelect, reqCheck, transCheck].forEach(el => {
+            [nameInput, typeSelect, transCheck].forEach(el => {
                 el.addEventListener('change', updateSummary);
                 el.addEventListener('input', updateSummary);
             });
@@ -458,7 +445,6 @@ $jsFields = array_map(function ($f) {
                     id: field.id || 0,
                     name: field.name,
                     field_type: field.field_type,
-                    is_required: field.is_required ? 1 : 0,
                     is_translatable: field.is_translatable ? 1 : 0,
                     order: idx,
                     deleted: 0
