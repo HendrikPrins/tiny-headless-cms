@@ -217,29 +217,6 @@ class Database {
             $schemaByName[$fieldDef['field']] = $fieldDef;
         }
 
-        // Helper: map logical types to MySQL column types
-        $mapType = function (string $logicalType): string {
-            switch ($logicalType) {
-                case 'string':
-                    return 'VARCHAR(255)';
-                case 'text':
-                    return 'TEXT';
-                case 'integer':
-                    return 'INT';
-                case 'decimal':
-                    return 'DECIMAL(10,2)';
-                case 'boolean':
-                    return 'TINYINT(1)';
-                case 'date':
-                    return 'DATE';
-                case 'datetime':
-                    return 'DATETIME';
-                default:
-                    // fallback to TEXT for unknown types
-                    return 'TEXT';
-            }
-        };
-
         try {
             // We will build a new schema array from the NEW values
             $newSchemaFields = [];
@@ -304,12 +281,18 @@ class Database {
                     $finalTrans = false;
                 }
 
+                // Resolve SQL type via FieldRegistry / FieldType
+                $fieldTypeObj = FieldRegistry::get($finalType);
+                if (!$fieldTypeObj instanceof FieldType) {
+                    throw new InvalidArgumentException('Unknown field type: ' . $finalType);
+                }
+                $columnType = $fieldTypeObj->getSqlType();
+
                 // Enforce uniqueness of NEW field names within this payload
                 if (isset($schemaByName[$finalName]) && (!$isExisting || $finalName !== $origName)) {
                     throw new InvalidArgumentException('Duplicate field name: ' . $finalName);
                 }
 
-                $columnType = $mapType($finalType);
                 $finalNameQuoted = "`" . str_replace("`", "``", $finalName) . "`";
 
                 if ($isExisting) {

@@ -1,5 +1,10 @@
 <?php
 trait AssetFieldCommon {
+
+    public function getSqlType(): string {
+        return 'TEXT';
+    }
+
     public function saveToDb(mixed $value): string {
         if ($value === null || $value === '' || $value === []) {
             return '';

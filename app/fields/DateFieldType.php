@@ -4,6 +4,10 @@ class DateFieldType extends FieldType {
         parent::__construct("date");
     }
 
+    public function getSqlType(): string {
+        return 'DATE';
+    }
+
     public function saveToDb(mixed $value): string {
         // Store as YYYY-MM-DD format
         if (empty($value)) {

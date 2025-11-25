@@ -4,6 +4,10 @@ class RichTextFieldType extends FieldType {
         parent::__construct('richtext');
     }
 
+    public function getSqlType(): string {
+        return 'LONGTEXT';
+    }
+
     public function saveToDb(mixed $value): string {
         // Store as JSON string
         if (is_array($value) || is_object($value)) {

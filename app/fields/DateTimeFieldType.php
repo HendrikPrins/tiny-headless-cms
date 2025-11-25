@@ -4,6 +4,10 @@ class DateTimeFieldType extends FieldType {
         parent::__construct("datetime");
     }
 
+    public function getSqlType(): string {
+        return 'DATETIME';
+    }
+
     public function saveToDb(mixed $value): string {
         // Store as YYYY-MM-DD HH:MM:SS format
         if (empty($value)) {

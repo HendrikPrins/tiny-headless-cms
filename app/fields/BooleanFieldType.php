@@ -4,6 +4,10 @@ class BooleanFieldType extends FieldType {
         parent::__construct("boolean");
     }
 
+    public function getSqlType(): string {
+        return 'TINYINT(1)';
+    }
+
     public function saveToDb(mixed $value): string {
         return $value ? "1" : "0";
     }

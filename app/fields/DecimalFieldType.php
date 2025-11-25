@@ -4,6 +4,10 @@ class DecimalFieldType extends FieldType {
         parent::__construct("decimal");
     }
 
+    public function getSqlType(): string {
+        return 'DECIMAL(10,2)';
+    }
+
     public function saveToDb(mixed $value): string {
         return (string)floatval($value);
     }

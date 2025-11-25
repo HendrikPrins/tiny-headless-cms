@@ -10,6 +10,8 @@ abstract class FieldType {
         return $this->name;
     }
 
+    abstract public function getSqlType(): string;
+
     abstract public function saveToDb(mixed $value): string;
     abstract public function readFromDb(string $raw): mixed;
 
