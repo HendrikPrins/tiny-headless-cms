@@ -527,11 +527,35 @@ class Database {
         $table = $ct['name'];
         $tableLocalized = $table . '_localized';
 
+        // Build a map of fieldName => FieldType for this content type
+        $fieldTypesByName = [];
+        $schemaFields = $ct['schema']['fields'] ?? [];
+        foreach ($schemaFields as $fieldDef) {
+            if (!isset($fieldDef['name'], $fieldDef['type'])) {
+                continue;
+            }
+            try {
+                $fieldTypesByName[$fieldDef['name']] = FieldRegistry::get($fieldDef['type']);
+            } catch (Throwable $e) {
+                // If type is unknown, skip special handling and let raw value through
+            }
+        }
+
+        // Normalize values using FieldType::saveToDb where available
+        $preparedValues = [];
+        foreach ($valuesByFieldName as $fieldName => $value) {
+            if (isset($fieldTypesByName[$fieldName]) && $fieldTypesByName[$fieldName] instanceof FieldType) {
+                $preparedValues[$fieldName] = $fieldTypesByName[$fieldName]->saveToDb($value);
+            } else {
+                $preparedValues[$fieldName] = $value;
+            }
+        }
+
         // Decide target table: empty locale => base table, otherwise localized
         if ($locale === '') {
             // Base table update, one row per entry id
             $sets = [];
-            foreach ($valuesByFieldName as $fieldName => $value) {
+            foreach ($preparedValues as $fieldName => $value) {
                 $col = '`' . str_replace('`', '``', $fieldName) . '`';
                 $sets[] = "$col = :$fieldName";
             }
@@ -541,7 +565,7 @@ class Database {
 
             $sql = "UPDATE `{$table}` SET " . implode(', ', $sets) . " WHERE id = :id";
             $stmt = $this->connection->prepare($sql);
-            foreach ($valuesByFieldName as $fieldName => $value) {
+            foreach ($preparedValues as $fieldName => $value) {
                 $param = ":$fieldName";
                 $stmt->bindValue($param, $value);
             }
@@ -558,7 +582,7 @@ class Database {
             ]);
 
             $sets = [];
-            foreach ($valuesByFieldName as $fieldName => $value) {
+            foreach ($preparedValues as $fieldName => $value) {
                 $col = '`' . str_replace('`', '``', $fieldName) . '`';
                 $sets[] = "$col = :$fieldName";
             }
@@ -568,7 +592,7 @@ class Database {
 
             $sql = "UPDATE `{$tableLocalized}` SET " . implode(', ', $sets) . " WHERE id = :id AND locale = :locale";
             $stmt = $this->connection->prepare($sql);
-            foreach ($valuesByFieldName as $fieldName => $value) {
+            foreach ($preparedValues as $fieldName => $value) {
                 $param = ":$fieldName";
                 $stmt->bindValue($param, $value);
             }
@@ -651,6 +675,19 @@ class Database {
             return isset($fieldFilterSet[$fieldName]);
         };
 
+        // Build FieldType map for this content type
+        $fieldTypesByName = [];
+        foreach ($fieldsInSchema as $fieldDef) {
+            if (!isset($fieldDef['name'], $fieldDef['type'])) {
+                continue;
+            }
+            try {
+                $fieldTypesByName[$fieldDef['name']] = FieldRegistry::get($fieldDef['type']);
+            } catch (Throwable $e) {
+                // ignore unknown types
+            }
+        }
+
         // Load localized rows for requested locales in one go
         $localizedByLocale = [];
         if (!empty($locales)) {
@@ -672,6 +709,7 @@ class Database {
                 continue;
             }
             $isTrans = !empty($field['is_translatable']);
+            $ft = $fieldTypesByName[$fieldName] ?? null;
 
             if ($isTrans) {
                 if ($multipleLocales) {
@@ -679,7 +717,9 @@ class Database {
                     foreach ($locales as $loc) {
                         $row = $localizedByLocale[$loc] ?? null;
                         if ($row && array_key_exists($fieldName, $row)) {
-                            $valueByLocale[$loc] = $row[$fieldName];
+                            $raw = $row[$fieldName];
+                            $val = $ft instanceof FieldType ? $ft->serializeToJson($ft->readFromDb((string)$raw)) : $raw;
+                            $valueByLocale[$loc] = $val;
                         }
                     }
                     $result[$fieldName] = $valueByLocale;
@@ -687,12 +727,22 @@ class Database {
                     $loc = $locales[0] ?? null;
                     if ($loc !== null) {
                         $row = $localizedByLocale[$loc] ?? null;
-                        $result[$fieldName] = $row[$fieldName] ?? null;
+                        $raw = $row[$fieldName] ?? null;
+                        $val = $raw;
+                        if ($ft instanceof FieldType && $raw !== null) {
+                            $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                        }
+                        $result[$fieldName] = $val;
                     }
                 }
             } else {
                 // Non-translatable: read from base table
-                $result[$fieldName] = $baseRow[$fieldName] ?? null;
+                $raw = $baseRow[$fieldName] ?? null;
+                $val = $raw;
+                if ($ft instanceof FieldType && $raw !== null) {
+                    $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                }
+                $result[$fieldName] = $val;
             }
         }
 
@@ -786,6 +836,19 @@ class Database {
             }
             return isset($fieldFilterSet[$fieldName]);
         };
+
+        // Build FieldType map for this content type
+        $fieldTypesByName = [];
+        foreach ($fieldsInSchema as $fieldDef) {
+            if (!isset($fieldDef['name'], $fieldDef['type'])) {
+                continue;
+            }
+            try {
+                $fieldTypesByName[$fieldDef['name']] = FieldRegistry::get($fieldDef['type']);
+            } catch (Throwable $e) {
+                // ignore unknown types
+            }
+        }
 
         // Build base query (without localized fields)
         $baseSql = "SELECT * FROM `{$table}`";
@@ -911,6 +974,7 @@ class Database {
                     continue;
                 }
                 $isTrans = !empty($field['is_translatable']);
+                $ft = $fieldTypesByName[$fieldName] ?? null;
 
                 if ($isTrans) {
                     if ($multipleLocales) {
@@ -918,7 +982,9 @@ class Database {
                         foreach ($locales as $loc) {
                             $locRow = $localizedByIdAndLocale[(int)$row['id']][$loc] ?? null;
                             if ($locRow && array_key_exists($fieldName, $locRow)) {
-                                $valueByLocale[$loc] = $locRow[$fieldName];
+                                $raw = $locRow[$fieldName];
+                                $val = $ft instanceof FieldType ? $ft->serializeToJson($ft->readFromDb((string)$raw)) : $raw;
+                                $valueByLocale[$loc] = $val;
                             }
                         }
                         $entry[$fieldName] = $valueByLocale;
@@ -926,11 +992,21 @@ class Database {
                         $loc = $locales[0] ?? null;
                         if ($loc !== null) {
                             $locRow = $localizedByIdAndLocale[(int)$row['id']][$loc] ?? null;
-                            $entry[$fieldName] = $locRow[$fieldName] ?? null;
+                            $raw = $locRow[$fieldName] ?? null;
+                            $val = $raw;
+                            if ($ft instanceof FieldType && $raw !== null) {
+                                $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                            }
+                            $entry[$fieldName] = $val;
                         }
                     }
                 } else {
-                    $entry[$fieldName] = $row[$fieldName] ?? null;
+                    $raw = $row[$fieldName] ?? null;
+                    $val = $raw;
+                    if ($ft instanceof FieldType && $raw !== null) {
+                        $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                    }
+                    $entry[$fieldName] = $val;
                 }
             }
 
