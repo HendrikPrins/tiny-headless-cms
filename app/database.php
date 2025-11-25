@@ -74,11 +74,64 @@ class Database {
 
     public function createContentType(string $name, bool $isSingleton): int
     {
-        // TODO:
-        // - check if name is unique
-        // - insert into content_types
-        // - create base table (only default columns)
-        // - create localized table (only default columns)
+        // Basic validation
+        if ($name === '') {
+            throw new InvalidArgumentException('Content type name must not be empty');
+        }
+        if (trim($name) !== $name) {
+            throw new InvalidArgumentException('Content type name must not have leading or trailing whitespace');
+        }
+        if (mb_strlen($name) > 255) {
+            throw new InvalidArgumentException('Content type name must be at most 255 characters');
+        }
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $name)) {
+            throw new InvalidArgumentException('Content type name may only contain letters, digits, and underscores, and must not start with a digit');
+        }
+
+        $tableName = $name;
+        $localizedTableName = $name . '_localized';
+
+        try {
+            // Ensure name is unique in content_types
+            $stmt = $this->connection->prepare('SELECT id FROM content_types WHERE name = :name LIMIT 1');
+            $stmt->execute([':name' => $name]);
+            if ($stmt->fetchColumn() !== false) {
+                throw new RuntimeException('Content type name already exists');
+            }
+
+            // Insert into content_types with empty schema
+            $emptySchema = json_encode(['fields' => []], JSON_UNESCAPED_UNICODE);
+            $stmt = $this->connection->prepare('INSERT INTO content_types (name, is_singleton, schema) VALUES (:name, :is_singleton, :schema)');
+            $stmt->execute([
+                ':name' => $name,
+                ':is_singleton' => $isSingleton ? 1 : 0,
+                ':schema' => $emptySchema,
+            ]);
+
+            $id = (int)$this->connection->lastInsertId();
+            if ($id <= 0) {
+                throw new RuntimeException('Failed to create content type');
+            }
+
+            // Create base table
+            $sqlBase = "CREATE TABLE `{$tableName}` (\n" .
+                "    id INT UNSIGNED NOT NULL AUTO_INCREMENT,\n" .
+                "    PRIMARY KEY (id)\n" .
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+            $this->connection->exec($sqlBase);
+
+            // Create localized table
+            $sqlLocalized = "CREATE TABLE `{$localizedTableName}` (\n" .
+                "    id INT UNSIGNED NOT NULL,\n" .
+                "    locale VARCHAR(255) NOT NULL,\n" .
+                "    PRIMARY KEY (id, locale)\n" .
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+            $this->connection->exec($sqlLocalized);
+
+            return $id;
+        } catch (Throwable $e) {
+            throw $e;
+        }
     }
 
     // Add: update content type name
