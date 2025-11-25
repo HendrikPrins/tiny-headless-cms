@@ -61,20 +61,19 @@ class Database {
         return $stmt->fetch();
     }
 
-    public function getCollections()
-    {
-
-    }
-
     public function getContentTypes()
     {
-
+        $stmt = $this->connection->query("SELECT id, name, is_singleton, schema FROM content_types ORDER BY name ASC");
+        $rows = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $row['schema'] = json_decode($row['schema'], true);
+            $rows[] = $row;
+        }
+        return $rows;
     }
 
     public function createContentType(string $name, bool $isSingleton): int
     {
-
-
         // TODO:
         // - check if name is unique
         // - insert into content_types
@@ -99,24 +98,19 @@ class Database {
 
     public function getContentType(int $id)
     {
-
+        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM content_types WHERE id = :id");
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        $contentType = null;
+        if ($row = $stmt->fetch()) {
+            $row['schema'] = json_decode($row['schema'], true);
+            $contentType = $row;
+        }
+        return $contentType;
     }
 
-    public function getFieldsForContentType(int $contentTypeId)
+    public function setContentTypeSchema(int $contentTypeId, $schema)
     {
-
-    }
-
-    // Create a field and return its new id
-    public function createField(int $contentTypeId, string $name, string $field_type, bool $is_translatable = false, int $order = 0): int
-    {
-        $name = trim($name);
-        if ($name === '') {
-            throw new InvalidArgumentException('Field name is required');
-        }
-        if (!FieldRegistry::isValidType($field_type)) {
-            throw new InvalidArgumentException('Invalid field type');
-        }
 
         // TODO:
         // - check if name is unique
@@ -125,34 +119,6 @@ class Database {
         // - add column to localized table if translatable
     }
 
-    // Update an existing field
-    public function updateField(int $id, string $name, string $field_type, bool $is_translatable = false, int $order = 0): bool
-    {
-        $name = trim($name);
-        if ($name === '') {
-            throw new InvalidArgumentException('Field name is required');
-        }
-        if (!FieldRegistry::isValidType($field_type)) {
-            throw new InvalidArgumentException('Invalid field type');
-        }
-
-        // TODO:
-        // - update content_type
-        // - update name if needed
-        // - update data type if needed
-        // if translatable is changed: move column, see migrateFieldToTranslatable() and migrateFieldToNonTranslatable()
-    }
-
-    public function deleteField(int $id): bool
-    {
-        // TODO:
-        // - fetch field
-        // - update content_type
-        // if translatable:
-        // - delete column from localized table
-        // else:
-        // - delete column from base table
-    }
 
     public function deleteContentType(int $id): bool
     {
@@ -163,14 +129,33 @@ class Database {
         // - delete content type
     }
 
-    public function getEntriesForContentType(int $contentTypeId)
+    public function getEntriesForContentType(int $contentTypeId, $locale)
     {
-
+        $ct = $this->getContentType($contentTypeId);
+        if ($ct === null) {
+            return [];
+        }
+        $table = $ct['name'];
+        $table_localized = $table . '_localized';
+        $columns_localized = [];
+        foreach ($ct['schema']['fields'] as $field) {
+            if ($field['is_translatable']) {
+                $columns_localized[] = 'l.' . $field['field_name'];
+            }
+        }
+        $query = "SELECT b.*, " . implode(', ', $columns_localized) . " FROM {$table} b LEFT JOIN {$table_localized} l ON b.id = l.entry_id AND l.locale = :locale WHERE 1";
+        $stmt = $this->connection->query($query);
+        return $stmt->fetchAll();
     }
 
     public function getEntryCountForContentType(int $contentTypeId): int
     {
-
+        $ct = $this->getContentType($contentTypeId);
+        if ($ct === null) {
+            return 0;
+        }
+        $table = $ct['name'];
+        return (int)$this->connection->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
     }
 
     public function getEntryById(int $entryId)

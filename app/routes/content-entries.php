@@ -21,13 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     }
 }
 
-$entries = $db->getEntriesForContentType($ctId);
-$entryCount = count($entries);
-$fields = $db->getFieldsForContentType($ctId);
 $previewLocale = $_GET['locale'] ?? '';
 if (!in_array($previewLocale, CMS_LOCALES)) {
     $previewLocale = CMS_LOCALES[0];
 }
+$entries = $db->getEntriesForContentType($ctId, $previewLocale);
+$entryCount = count($entries);
+$fields = $ct["schema"]["fields"];
 
 // Determine which fields to show as preview (max 3)
 $previewFields = array_slice($fields, 0, 3);
@@ -97,7 +97,7 @@ foreach ($entries as $e) {
     $value = $isTranslatable
         ? ($entry['translatable_values'][$fid] ?? '')
         : ($entry['non_translatable_values'][$fid] ?? '');
-    $fieldTypeObj = FieldRegistry::get($field['field_type']);
+    $fieldTypeObj = FieldRegistry::get($field['type']);
     if ($fieldTypeObj) {
         $converted = $fieldTypeObj->readFromDb((string)$value);
         $displayValue = $fieldTypeObj->renderPreview($field['name'], $converted);

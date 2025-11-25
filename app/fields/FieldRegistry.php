@@ -53,8 +53,8 @@ class FieldRegistry {
         }
     }
 
-    public static function isValidType(string $field_type)
+    public static function isValidType(string $type)
     {
-        return isset(self::$types[$field_type]);
+        return isset(self::$types[$type]);
     }
 }

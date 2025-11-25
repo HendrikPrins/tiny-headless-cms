@@ -6,7 +6,7 @@ if ($ctId <= 0) { echo '<h1>Content type not found</h1>'; return; }
 $ct = $db->getContentType($ctId);
 if (!$ct) { echo '<h1>Content type not found</h1>'; return; }
 $title = ($entryId > 0 ? 'Edit Entry: ' : 'Create Entry: ') . htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8');
-$fields = $db->getFieldsForContentType($ctId);
+$fields = $ct['schema']['fields'];
 $isSingleton = $ct['is_singleton'];
 
 // Get available locales
@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!$isTranslatable) { continue; }
                     $key = 'field_' . $fid . '_' . $locale;
                     $raw = $_POST[$key] ?? '';
-                    $fieldType = FieldRegistry::get($f['field_type']);
+                    $fieldType = FieldRegistry::get($f['type']);
                     $translatableValues[$fid] = $fieldType->deserializeFromPost($_POST, $key);
                 }
                 // Save translatable values for this locale
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $fid = (int)$f['id'];
                 if (!(bool)$f['is_translatable']) {
                     $key = 'field_' . $fid;
-                    $fieldType = FieldRegistry::get($f['field_type']);
+                    $fieldType = FieldRegistry::get($f['type']);
                     $nonTranslatableValues[$fid] = $fieldType->deserializeFromPost($_POST, $key);
                 }
             }
@@ -112,7 +112,7 @@ foreach (FieldRegistry::getAll() as $ft) {
 <form method="post" class="form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 
-    <?php foreach ($fields as $f): $fid=(int)$f['id']; $name = htmlspecialchars($f['name'], ENT_QUOTES, 'UTF-8'); $ft=$f['field_type']; $isTranslatable=(bool)$f['is_translatable']; ?>
+    <?php foreach ($fields as $f): $fid=(int)$f['id']; $name = htmlspecialchars($f['name'], ENT_QUOTES, 'UTF-8'); $ft=$f['type']; $isTranslatable=(bool)$f['is_translatable']; ?>
         <?php if ($isTranslatable): ?>
             <?php foreach ($locales as $loc): $val = $valuesByLocale[$loc][$fid] ?? ''; $inputName='field_'.$fid.'_'.$loc; $fieldType = FieldRegistry::get($ft); $wrap = $fieldType->shouldWrapWithLabel(); ?>
                 <<?= $wrap ? 'label' : 'div' ?> class="field" data-locale-field="<?= htmlspecialchars($loc, ENT_QUOTES, 'UTF-8') ?>">

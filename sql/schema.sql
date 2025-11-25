@@ -6,15 +6,6 @@ CREATE TABLE users
     role         VARCHAR(20) NOT NULL DEFAULT 'editor'
 );
 
-CREATE TABLE content_types
-(
-    id           INT AUTO_INCREMENT PRIMARY KEY,
-    name         VARCHAR(255) NOT NULL UNIQUE,   -- human/display name
-    machine_name VARCHAR(255) NOT NULL UNIQUE,   -- used for table names
-    is_singleton BOOLEAN DEFAULT FALSE,
-    schema_json  JSON NOT NULL
-);
-
 CREATE TABLE assets (
     id INT AUTO_INCREMENT PRIMARY KEY,
     filename VARCHAR(255) NOT NULL,

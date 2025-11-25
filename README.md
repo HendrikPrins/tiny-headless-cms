@@ -154,7 +154,7 @@ Each image block is stored as:
 ## Database structure
 
 ```sql
-CREATE TABLE `content_type`
+CREATE TABLE `content_types`
 (
     `id` int(11) NOT NULL AUTO_INCREMENT,
     `name` varchar(255) NOT NULL,
@@ -177,7 +177,6 @@ The CMS will create the following tables for such a content type:
 CREATE TABLE `news`
 (
     `id` int(11) NOT NULL AUTO_INCREMENT,
-    `content_type_id` int(11) NOT NULL,
     `date` datetime NOT NULL,
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
