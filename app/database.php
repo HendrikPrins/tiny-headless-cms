@@ -174,6 +174,15 @@ class Database {
 
     public function setContentTypeSchema(int $contentTypeId, $schema)
     {
+        // Input format:
+        /*
+         [
+          {"name":null,"type":null,"is_translatable":null,
+        "$name":"title","$type":"string","$is_translatable":true},
+        {"name":null,"type":null,"is_translatable":null,
+        "$name":"date","$type":"date","$is_translatable":false}
+        ]
+        */
 
         // TODO:
         // - check if name is unique
