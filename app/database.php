@@ -28,7 +28,7 @@ class Database {
 
     public function hasSchema() {
         try {
-            $stmt = $this->connection->query("SHOW TABLES LIKE 'users'");
+            $stmt = $this->connection->query("SHOW TABLES LIKE 'cms_users'");
             return $stmt->rowCount() > 0;
         } catch (PDOException $e) {
             return false;
@@ -37,7 +37,7 @@ class Database {
 
     public function hasAdminUser() {
         try {
-            $stmt = $this->connection->query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+            $stmt = $this->connection->query("SELECT COUNT(*) FROM cms_users WHERE role = 'admin'");
             return $stmt->fetchColumn() > 0;
         } catch (PDOException $e) {
             return false;
@@ -46,7 +46,7 @@ class Database {
 
     public function createUser($username, $password, $role) {
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-        $stmt = $this->connection->prepare("INSERT INTO users (username, password, role) VALUES (:username, :password, :role)");
+        $stmt = $this->connection->prepare("INSERT INTO cms_users (username, password, role) VALUES (:username, :password, :role)");
         $stmt->bindParam(':username', $username);
         $stmt->bindParam(':password', $hashedPassword);
         $stmt->bindParam(':role', $role);
@@ -55,7 +55,7 @@ class Database {
 
     public function getUserByUsername(string $username)
     {
-        $stmt = $this->connection->prepare("SELECT id, username, password, role FROM users WHERE username = :username");
+        $stmt = $this->connection->prepare("SELECT id, username, password, role FROM cms_users WHERE username = :username");
         $stmt->bindParam(':username', $username);
         $stmt->execute();
         return $stmt->fetch();
@@ -63,7 +63,7 @@ class Database {
 
     public function getContentTypes()
     {
-        $stmt = $this->connection->query("SELECT id, name, is_singleton, schema FROM content_types ORDER BY name ASC");
+        $stmt = $this->connection->query("SELECT id, name, is_singleton, schema FROM cms_content_types ORDER BY name ASC");
         $rows = [];
         foreach ($stmt->fetchAll() as $row) {
             $row['schema'] = json_decode($row['schema'], true);
@@ -91,6 +91,9 @@ class Database {
         if (mb_strlen($name) > 255) {
             throw new InvalidArgumentException('Content type name must be at most 255 characters');
         }
+        if (strpos($name, 'cms_') === 0 || substr($name, -10) === '_localized') {
+            throw new InvalidArgumentException('Content type name cannot start with cms_ or end with _localized');
+        }
         if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $name)) {
             throw new InvalidArgumentException('Content type name may only contain letters, digits, and underscores, and must not start with a digit');
         }
@@ -100,7 +103,7 @@ class Database {
 
         try {
             // Ensure name is unique in content_types
-            $stmt = $this->connection->prepare('SELECT id FROM content_types WHERE name = :name LIMIT 1');
+            $stmt = $this->connection->prepare('SELECT id FROM cms_content_types WHERE name = :name LIMIT 1');
             $stmt->execute([':name' => $name]);
             if ($stmt->fetchColumn() !== false) {
                 throw new RuntimeException('Content type name already exists');
@@ -108,7 +111,7 @@ class Database {
 
             // Insert into content_types with empty schema
             $emptySchema = json_encode(['fields' => []], JSON_UNESCAPED_UNICODE);
-            $stmt = $this->connection->prepare('INSERT INTO content_types (name, is_singleton, schema) VALUES (:name, :is_singleton, :schema)');
+            $stmt = $this->connection->prepare('INSERT INTO cms_content_types (name, is_singleton, schema) VALUES (:name, :is_singleton, :schema)');
             $stmt->execute([
                 ':name' => $name,
                 ':is_singleton' => $isSingleton ? 1 : 0,
@@ -150,10 +153,13 @@ class Database {
         if (strlen($name) > 255) {
             throw new InvalidArgumentException('Name must be 255 characters or fewer');
         }
+        if (strpos($name, 'cms_') === 0 || substr($name, -10) === '_localized') {
+            throw new InvalidArgumentException('Content type name cannot start with cms_ or end with _localized');
+        }
 
         $ct = $this->getContentType($id);
 
-        $stmt = $this->connection->prepare("UPDATE content_types SET name = :name WHERE id = :id");
+        $stmt = $this->connection->prepare("UPDATE cms_content_types SET name = :name WHERE id = :id");
         $stmt->bindParam(':name', $name);
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         $stmt->execute();
@@ -168,7 +174,7 @@ class Database {
 
     public function getContentType(int $id)
     {
-        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM content_types WHERE id = :id");
+        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM cms_content_types WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         $stmt->execute();
         $contentType = null;
@@ -418,7 +424,7 @@ class Database {
 
             // Persist new schema on content_types
             $schemaJson = json_encode($newSchema, JSON_UNESCAPED_UNICODE);
-            $stmt = $this->connection->prepare('UPDATE content_types SET schema = :schema WHERE id = :id');
+            $stmt = $this->connection->prepare('UPDATE cms_content_types SET schema = :schema WHERE id = :id');
             $stmt->execute([
                 ':schema' => $schemaJson,
                 ':id' => $contentTypeId,
@@ -436,7 +442,7 @@ class Database {
         $stmt->execute();
         $stmt = $this->connection->prepare("DROP TABLE IF EXISTS {$ct['name']}_localized");
         $stmt->execute();
-        $stmt = $this->connection->prepare("DELETE FROM content_types WHERE id = :id");
+        $stmt = $this->connection->prepare("DELETE FROM cms_content_types WHERE id = :id");
         return $stmt->execute([':id' => $id]);
     }
 
@@ -634,7 +640,7 @@ class Database {
     public function getSingletonByName(string $name, ?array $locales = null, ?array $extraLocales = null, ?array $fieldFilter = null): ?array
     {
         // Find content type by name and ensure it is a singleton
-        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM content_types WHERE name = :name LIMIT 1");
+        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM cms_content_types WHERE name = :name LIMIT 1");
         $stmt->bindParam(':name', $name);
         $stmt->execute();
         $ct = $stmt->fetch();
@@ -809,7 +815,7 @@ class Database {
     public function getCollectionByName(string $name, ?array $locales = null, int $limit = 100, int $offset = 0, ?array $extraLocales = null, ?array $fieldFilter = null, ?array $valueFilter = null, ?array $sort = null): array
     {
         // Find content type by name and ensure it's a collection
-        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM content_types WHERE name = :name LIMIT 1");
+        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM cms_content_types WHERE name = :name LIMIT 1");
         $stmt->bindParam(':name', $name);
         $stmt->execute();
         $ct = $stmt->fetch();
@@ -1070,7 +1076,7 @@ class Database {
 
     public function getCollectionTotalCount(string $name, ?array $valueFilter = null): int
     {
-        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM content_types WHERE name = :name LIMIT 1");
+        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM cms_content_types WHERE name = :name LIMIT 1");
         $stmt->bindParam(':name', $name);
         $stmt->execute();
         $ct = $stmt->fetch();
@@ -1136,7 +1142,7 @@ class Database {
      */
     public function createAsset(string $filename, string $path, ?string $mimeType, ?int $size, string $directory = ''): int
     {
-        $stmt = $this->connection->prepare("INSERT INTO assets (filename, path, directory, mime_type, size) VALUES (:filename, :path, :directory, :mime, :size)");
+        $stmt = $this->connection->prepare("INSERT INTO cms_assets (filename, path, directory, mime_type, size) VALUES (:filename, :path, :directory, :mime, :size)");
         $stmt->bindParam(':filename', $filename);
         $stmt->bindParam(':path', $path);
         $stmt->bindParam(':directory', $directory);
@@ -1152,12 +1158,12 @@ class Database {
     public function getAssets(?string $directory = null): array
     {
         if ($directory !== null) {
-            $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE directory = :dir ORDER BY created_at DESC");
+            $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM cms_assets WHERE directory = :dir ORDER BY created_at DESC");
             $stmt->bindParam(':dir', $directory);
             $stmt->execute();
             return $stmt->fetchAll();
         }
-        $stmt = $this->connection->query("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets ORDER BY directory ASC, created_at DESC");
+        $stmt = $this->connection->query("SELECT id, filename, path, directory, mime_type, size, created_at FROM cms_assets ORDER BY directory ASC, created_at DESC");
         return $stmt->fetchAll();
     }
 
@@ -1166,7 +1172,7 @@ class Database {
      */
     public function getAssetDirectories(): array
     {
-        $stmt = $this->connection->query("SELECT DISTINCT directory FROM assets ORDER BY directory ASC");
+        $stmt = $this->connection->query("SELECT DISTINCT directory FROM cms_assets ORDER BY directory ASC");
         $results = $stmt->fetchAll(PDO::FETCH_COLUMN);
         return $results;
     }
@@ -1176,7 +1182,7 @@ class Database {
      */
     public function getAssetById(int $id): ?array
     {
-        $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE id = :id");
+        $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM cms_assets WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
@@ -1188,7 +1194,7 @@ class Database {
      */
     public function updateAssetPath(int $id, string $path, string $directory): bool
     {
-        $stmt = $this->connection->prepare("UPDATE assets SET path = :path, directory = :directory WHERE id = :id");
+        $stmt = $this->connection->prepare("UPDATE cms_assets SET path = :path, directory = :directory WHERE id = :id");
         $stmt->bindParam(':path', $path);
         $stmt->bindParam(':directory', $directory);
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
@@ -1209,14 +1215,14 @@ class Database {
         }
         $this->connection->beginTransaction();
         try {
-            $stmt = $this->connection->prepare("SELECT id, path, directory FROM assets WHERE directory = :dir OR directory LIKE :dirlike");
+            $stmt = $this->connection->prepare("SELECT id, path, directory FROM cms_assets WHERE directory = :dir OR directory LIKE :dirlike");
             $stmt->execute([
                 ':dir' => $oldDir,
                 ':dirlike' => $oldDir . '/%'
             ]);
             $rows = $stmt->fetchAll();
             if ($rows) {
-                $update = $this->connection->prepare("UPDATE assets SET path = :path, directory = :directory WHERE id = :id");
+                $update = $this->connection->prepare("UPDATE cms_assets SET path = :path, directory = :directory WHERE id = :id");
                 $prefixOld = $oldDir . '/';
                 $prefixNew = $newDir . '/';
                 foreach ($rows as $r) {
@@ -1259,7 +1265,7 @@ class Database {
      */
     public function deleteAsset(int $id): bool
     {
-        $stmt = $this->connection->prepare("DELETE FROM assets WHERE id = :id");
+        $stmt = $this->connection->prepare("DELETE FROM cms_assets WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         return $stmt->execute();
     }
@@ -1281,7 +1287,7 @@ class Database {
 
         if ($query === '') {
             // Fallback to simple listing with pagination
-            $sql = "SELECT id, filename, path, directory, mime_type, size, created_at FROM assets";
+            $sql = "SELECT id, filename, path, directory, mime_type, size, created_at FROM cms_assets";
             if ($mimeCondition) $sql .= " WHERE $mimeCondition";
             $sql .= " ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
             $stmt = $this->connection->prepare($sql);
@@ -1291,7 +1297,7 @@ class Database {
             $rows = $stmt->fetchAll();
         } else {
             $like = '%' . $query . '%';
-            $sql = "SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE (filename LIKE :like OR path LIKE :like)";
+            $sql = "SELECT id, filename, path, directory, mime_type, size, created_at FROM cms_assets WHERE (filename LIKE :like OR path LIKE :like)";
             if ($mimeCondition) $sql .= " AND ($mimeCondition)";
             $sql .= " ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
             $stmt = $this->connection->prepare($sql);
@@ -1303,12 +1309,12 @@ class Database {
         }
         // total count for query
         if ($query === '') {
-            $sql = "SELECT COUNT(*) FROM assets";
+            $sql = "SELECT COUNT(*) FROM cms_assets";
             if ($mimeCondition) $sql .= " WHERE $mimeCondition";
             $countStmt = $this->connection->query($sql);
             $total = (int)$countStmt->fetchColumn();
         } else {
-            $sql = "SELECT COUNT(*) FROM assets WHERE (filename LIKE :like OR path LIKE :like)";
+            $sql = "SELECT COUNT(*) FROM cms_assets WHERE (filename LIKE :like OR path LIKE :like)";
             if ($mimeCondition) $sql .= " AND ($mimeCondition)";
             $countStmt = $this->connection->prepare($sql);
             $like = '%' . $query . '%';
@@ -1338,14 +1344,14 @@ class Database {
         // Build MIME type filter
         $mimeCondition = $this->buildMimeFilterCondition($filter);
 
-        $sql = "SELECT COUNT(*) FROM assets WHERE directory = :dir";
+        $sql = "SELECT COUNT(*) FROM cms_assets WHERE directory = :dir";
         if ($mimeCondition) $sql .= " AND ($mimeCondition)";
         $countStmt = $this->connection->prepare($sql);
         $countStmt->bindParam(':dir', $directory);
         $countStmt->execute();
         $total = (int)$countStmt->fetchColumn();
 
-        $sql = "SELECT id, filename, path, directory, mime_type, size, created_at FROM assets WHERE directory = :dir";
+        $sql = "SELECT id, filename, path, directory, mime_type, size, created_at FROM cms_assets WHERE directory = :dir";
         if ($mimeCondition) $sql .= " AND ($mimeCondition)";
         $sql .= " ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
         $stmt = $this->connection->prepare($sql);
@@ -1372,12 +1378,12 @@ class Database {
     }
 
     public function getAllUsers(): array {
-        $stmt = $this->connection->query("SELECT id, username, role FROM users ORDER BY id ASC");
+        $stmt = $this->connection->query("SELECT id, username, role FROM cms_users ORDER BY id ASC");
         return $stmt->fetchAll();
     }
 
     public function getUserById(int $id): ?array {
-        $stmt = $this->connection->prepare("SELECT id, username, password, role FROM users WHERE id = :id");
+        $stmt = $this->connection->prepare("SELECT id, username, password, role FROM cms_users WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         $stmt->execute();
         $row = $stmt->fetch();
@@ -1394,7 +1400,7 @@ class Database {
         if ($newPassword !== null && $newPassword !== '') {
             $passToSet = password_hash($newPassword, PASSWORD_BCRYPT);
         }
-        $stmt = $this->connection->prepare("UPDATE users SET username = :username, password = :password, role = :role WHERE id = :id");
+        $stmt = $this->connection->prepare("UPDATE cms_users SET username = :username, password = :password, role = :role WHERE id = :id");
         $stmt->bindParam(':username', $username);
         $stmt->bindParam(':password', $passToSet);
         $stmt->bindParam(':role', $roleToSet);
@@ -1403,7 +1409,7 @@ class Database {
     }
 
     public function deleteUser(int $id): bool {
-        $stmt = $this->connection->prepare("DELETE FROM users WHERE id = :id");
+        $stmt = $this->connection->prepare("DELETE FROM cms_users WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         return $stmt->execute();
     }

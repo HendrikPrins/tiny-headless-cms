@@ -153,17 +153,6 @@ Each image block is stored as:
 
 ## Database structure
 
-```sql
-CREATE TABLE `content_types`
-(
-    `id` int(11) NOT NULL AUTO_INCREMENT,
-    `name` varchar(255) NOT NULL,
-    `is_singleton` tinyint(1) NOT NULL DEFAULT '0',
-    `schema` longtext NOT NULL COMMENT 'JSON-encoded schema',
-    PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-```
-
 An example of a content_type is:
 - name: news
 - is_singleton: 0
