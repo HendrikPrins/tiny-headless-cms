@@ -9,6 +9,20 @@ $title = ($entryId > 0 ? 'Edit Entry: ' : 'Create Entry: ') . htmlspecialchars($
 $fields = $ct['schema']['fields'];
 $isSingleton = $ct['is_singleton'];
 
+$permission = isAdmin() ? 'full-access' : $ct['editor_permission_mode'] ?? 'read-only';
+echo $permission;
+
+if ($entryId === 0 && $permission !== 'full-access') {
+    http_response_code(403);
+    echo '<div class="alert alert-danger">You do not have permission to delete entries.</div>';
+    return;
+} else if ($entryId > 0 && $permission !== 'full-access' && $permission !== 'edit-only') {
+    http_response_code(403);
+    echo '<div class="alert alert-danger">You do not have permission to edit entries.</div>';
+    return;
+}
+
+
 // Get available locales
 $locales = CMS_LOCALES;
 
@@ -17,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo '<div class="alert alert-danger">Invalid request.</div>';
     } else {
         // Disallow editors from creating new entries
-        if ($entryId === 0 && !isAdmin()) {
+        if ($entryId === 0 && $permission !== 'full-access') {
             echo '<div class="alert alert-danger">You do not have permission to create entries.</div>';
         } else {
             // Singleton guard: only one entry allowed

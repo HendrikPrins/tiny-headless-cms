@@ -61,12 +61,22 @@ class Database {
         return $stmt->fetch();
     }
 
+    private function normalizeEditorPermissionMode(?string $mode): string
+    {
+        $allowed = ['read-only', 'edit-only', 'full-access'];
+        if ($mode === null || $mode === '') {
+            return 'read-only';
+        }
+        return in_array($mode, $allowed, true) ? $mode : 'read-only';
+    }
+
     public function getContentTypes()
     {
-        $stmt = $this->connection->query("SELECT id, name, is_singleton, schema FROM cms_content_types ORDER BY name ASC");
+        $stmt = $this->connection->query("SELECT id, name, is_singleton, schema, editor_permission_mode FROM cms_content_types ORDER BY name ASC");
         $rows = [];
         foreach ($stmt->fetchAll() as $row) {
             $row['schema'] = json_decode($row['schema'], true);
+            $row['editor_permission_mode'] = $this->normalizeEditorPermissionMode($row['editor_permission_mode'] ?? null);
             $rows[] = $row;
         }
         foreach ($rows as &$row) {
@@ -111,11 +121,12 @@ class Database {
 
             // Insert into content_types with empty schema
             $emptySchema = json_encode(['fields' => []], JSON_UNESCAPED_UNICODE);
-            $stmt = $this->connection->prepare('INSERT INTO cms_content_types (name, is_singleton, schema) VALUES (:name, :is_singleton, :schema)');
+            $stmt = $this->connection->prepare('INSERT INTO cms_content_types (name, is_singleton, schema, editor_permission_mode) VALUES (:name, :is_singleton, :schema, :editor_permission_mode)');
             $stmt->execute([
                 ':name' => $name,
                 ':is_singleton' => $isSingleton ? 1 : 0,
                 ':schema' => $emptySchema,
+                ':editor_permission_mode' => 'read-only',
             ]);
 
             $id = (int)$this->connection->lastInsertId();
@@ -191,12 +202,13 @@ class Database {
 
     public function getContentType(int $id)
     {
-        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM cms_content_types WHERE id = :id");
+        $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema, editor_permission_mode FROM cms_content_types WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         $stmt->execute();
         $contentType = null;
         if ($row = $stmt->fetch()) {
             $row['schema'] = json_decode($row['schema'], true);
+            $row['editor_permission_mode'] = $this->normalizeEditorPermissionMode($row['editor_permission_mode'] ?? null);
             $contentType = $row;
         }
         return $contentType;
@@ -1440,5 +1452,15 @@ class Database {
         $stmt = $this->connection->prepare("DELETE FROM cms_users WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         return $stmt->execute();
+    }
+
+    public function updateContentTypeEditorPermissionMode(int $id, string $mode): void
+    {
+        $mode = $this->normalizeEditorPermissionMode($mode);
+        $stmt = $this->connection->prepare('UPDATE cms_content_types SET editor_permission_mode = :mode WHERE id = :id');
+        $stmt->execute([
+            ':mode' => $mode,
+            ':id' => $id,
+        ]);
     }
 }

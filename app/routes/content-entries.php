@@ -6,10 +6,11 @@ $contentType = $db->getContentType($ctId);
 if (!$contentType) { echo '<h1>Content type not found</h1>'; return; }
 $title = 'Entries for: ' . htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8');
 $isSingleton = $contentType['is_singleton'];
+$permission = isAdmin() ? 'full-access' : $contentType['editor_permission_mode'] ?? 'read-only';
 
 // Handle delete (admins only)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
-    if (!isAdmin()) {
+    if ($permission !== 'full-access') {
         http_response_code(403);
         echo '<div class="alert alert-danger">You do not have permission to delete entries.</div>';
     } elseif (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
@@ -87,7 +88,7 @@ $entryCount = count($entries);
 <?php if ($contentType['is_singleton']): ?>
     <?php if ($entryCount === 0): ?>
         <p>No entry yet.</p>
-        <?php if (isAdmin()): ?>
+        <?php if ($permission === 'full-access'): ?>
         <p><a class="btn btn-primary" href="?page=content-entry-edit&ct=<?= (int)$ctId ?>">Create Entry</a></p>
         <?php endif; ?>
     <?php else: ?>
@@ -95,7 +96,7 @@ $entryCount = count($entries);
         <p><a class="btn btn-primary" href="?page=content-entry-edit&ct=<?= (int)$ctId ?>&id=<?= (int)$first['id'] ?>">Edit Singleton</a></p>
     <?php endif; ?>
 <?php else: ?>
-    <?php if (isAdmin()): ?>
+    <?php if ($permission === 'full-access'): ?>
     <p><a class="btn btn-primary" href="?page=content-entry-edit&ct=<?= (int)$ctId ?>">New Entry</a></p>
     <?php endif; ?>
     <?php if (empty($entries)): ?>
@@ -131,8 +132,10 @@ $entryCount = count($entries);
                         <td><?= $displayValue ?></td>
                         <?php endforeach; ?>
                         <td style="white-space:nowrap;">
+                            <?php if ($permission === 'full-access' || $permission === 'edit-only'): ?>
                             <a class="btn btn-icon btn-primary" href="?page=content-entry-edit&ct=<?= $ctId ?>&id=<?= $entry['id'] ?>"><?=ICON_PENCIL?></a>
-                            <?php if (isAdmin()): ?>
+                            <?php endif; ?>
+                            <?php if ($permission === 'full-access'): ?>
                             <form class="form-table-delete" method="post" onsubmit="return confirm('Delete this entry?');">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="action" value="delete">
