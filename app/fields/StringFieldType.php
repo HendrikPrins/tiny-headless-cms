@@ -7,12 +7,8 @@ class StringFieldType extends FieldType {
     public function getSqlType(): string {
         return 'VARCHAR(255)';
     }
-    public function saveToDb(mixed $value): string {
+    public function saveToDb(mixed $value): mixed {
         return (string)$value;
-    }
-
-    public function readFromDb(string $raw): mixed {
-        return $raw;
     }
 
     public function serializeToJson(mixed $value): mixed {

@@ -5,7 +5,7 @@ trait AssetFieldCommon {
         return 'TEXT';
     }
 
-    public function saveToDb(mixed $value): string {
+    public function saveToDb(mixed $value): mixed {
         if ($value === null || $value === '' || $value === []) {
             return '';
         }
@@ -13,18 +13,6 @@ trait AssetFieldCommon {
             return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
         return (string)$value;
-    }
-
-    public function readFromDb(string $raw): mixed {
-        if ($raw === '') {
-            // Let concrete type decide: scalar types will override if needed
-            return $this instanceof ImagesFieldType || $this instanceof AssetsFieldType ? [] : null;
-        }
-        $decoded = json_decode($raw, true);
-        if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
-            return $this instanceof ImagesFieldType || $this instanceof AssetsFieldType ? [] : null;
-        }
-        return $decoded;
     }
 
     public function serializeToJson(mixed $value): mixed {

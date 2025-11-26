@@ -8,21 +8,13 @@ class RichTextFieldType extends FieldType {
         return 'LONGTEXT';
     }
 
-    public function saveToDb(mixed $value): string {
+    public function saveToDb(mixed $value): mixed {
         // Store as JSON string
         if (is_array($value) || is_object($value)) {
             return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
         // Assume already JSON or empty
         return (string)$value;
-    }
-
-    public function readFromDb(string $raw): mixed {
-        if ($raw === '') {
-            return [];
-        }
-        $decoded = json_decode($raw, true);
-        return $decoded === null ? [] : $decoded;
     }
 
     public function serializeToJson(mixed $value): mixed {

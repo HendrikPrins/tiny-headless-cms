@@ -8,7 +8,7 @@ class DateTimeFieldType extends FieldType {
         return 'DATETIME';
     }
 
-    public function saveToDb(mixed $value): string {
+    public function saveToDb(mixed $value): mixed {
         // Store as YYYY-MM-DD HH:MM:SS format
         if (empty($value)) {
             return '';
@@ -31,11 +31,6 @@ class DateTimeFieldType extends FieldType {
         } catch (Exception $e) {
             return '';
         }
-    }
-
-    public function readFromDb(string $raw): mixed {
-        // Return as YYYY-MM-DD HH:MM:SS string
-        return $raw;
     }
 
     public function serializeToJson(mixed $value): mixed {

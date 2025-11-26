@@ -8,12 +8,8 @@ class IntegerFieldType extends FieldType {
         return 'INT';
     }
 
-    public function saveToDb(mixed $value): string {
+    public function saveToDb(mixed $value): mixed {
         return (string)intval($value);
-    }
-
-    public function readFromDb(string $raw): mixed {
-        return intval($raw);
     }
 
     public function serializeToJson(mixed $value): mixed {

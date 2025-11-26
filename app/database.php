@@ -547,7 +547,6 @@ class Database {
             }
         }
 
-        // Normalize values using FieldType::saveToDb where available
         $preparedValues = [];
         foreach ($valuesByFieldName as $fieldName => $value) {
             if (isset($fieldTypesByName[$fieldName]) && $fieldTypesByName[$fieldName] instanceof FieldType) {
@@ -724,7 +723,7 @@ class Database {
                         $row = $localizedByLocale[$loc] ?? null;
                         if ($row && array_key_exists($fieldName, $row)) {
                             $raw = $row[$fieldName];
-                            $val = $ft instanceof FieldType ? $ft->serializeToJson($ft->readFromDb((string)$raw)) : $raw;
+                            $val = $ft instanceof FieldType ? $ft->serializeToJson($raw) : $raw;
                             $valueByLocale[$loc] = $val;
                         }
                     }
@@ -736,7 +735,7 @@ class Database {
                         $raw = $row[$fieldName] ?? null;
                         $val = $raw;
                         if ($ft instanceof FieldType && $raw !== null) {
-                            $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                            $val = $ft->serializeToJson($raw);
                         }
                         $result[$fieldName] = $val;
                     }
@@ -746,7 +745,7 @@ class Database {
                 $raw = $baseRow[$fieldName] ?? null;
                 $val = $raw;
                 if ($ft instanceof FieldType && $raw !== null) {
-                    $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                    $val = $ft->serializeToJson($raw);
                 }
                 $result[$fieldName] = $val;
             }
@@ -989,7 +988,7 @@ class Database {
                             $locRow = $localizedByIdAndLocale[(int)$row['id']][$loc] ?? null;
                             if ($locRow && array_key_exists($fieldName, $locRow)) {
                                 $raw = $locRow[$fieldName];
-                                $val = $ft instanceof FieldType ? $ft->serializeToJson($ft->readFromDb((string)$raw)) : $raw;
+                                $val = $ft instanceof FieldType ? $ft->serializeToJson($raw) : $raw;
                                 $valueByLocale[$loc] = $val;
                             }
                         }
@@ -1001,7 +1000,7 @@ class Database {
                             $raw = $locRow[$fieldName] ?? null;
                             $val = $raw;
                             if ($ft instanceof FieldType && $raw !== null) {
-                                $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                                $val = $ft->serializeToJson($raw);
                             }
                             $entry[$fieldName] = $val;
                         }
@@ -1010,7 +1009,7 @@ class Database {
                     $raw = $row[$fieldName] ?? null;
                     $val = $raw;
                     if ($ft instanceof FieldType && $raw !== null) {
-                        $val = $ft->serializeToJson($ft->readFromDb((string)$raw));
+                        $val = $ft->serializeToJson($raw);
                     }
                     $entry[$fieldName] = $val;
                 }

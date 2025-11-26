@@ -86,8 +86,7 @@ $previewFields = array_slice($fields, 0, 3);
     $value = $entry[$field['name']];
     $fieldTypeObj = FieldRegistry::get($field['type']);
     if ($fieldTypeObj) {
-        $converted = $fieldTypeObj->readFromDb((string)$value);
-        $displayValue = $fieldTypeObj->renderPreview($field['name'], $converted);
+        $displayValue = $fieldTypeObj->renderPreview($field['name'], $value);
     } else {
         $displayValue = htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
     }

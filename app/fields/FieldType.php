@@ -12,8 +12,7 @@ abstract class FieldType {
 
     abstract public function getSqlType(): string;
 
-    abstract public function saveToDb(mixed $value): string;
-    abstract public function readFromDb(string $raw): mixed;
+    abstract public function saveToDb(mixed $value): mixed;
 
     abstract public function serializeToJson(mixed $value): mixed;
     abstract public function deserializeFromPost(array $postData, string $fieldName): mixed;

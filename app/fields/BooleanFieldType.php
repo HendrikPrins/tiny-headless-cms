@@ -8,12 +8,8 @@ class BooleanFieldType extends FieldType {
         return 'TINYINT(1)';
     }
 
-    public function saveToDb(mixed $value): string {
+    public function saveToDb(mixed $value): mixed {
         return $value ? "1" : "0";
-    }
-
-    public function readFromDb(string $raw): mixed {
-        return $raw === "1";
     }
 
     public function serializeToJson(mixed $value): mixed {
@@ -25,8 +21,8 @@ class BooleanFieldType extends FieldType {
     }
 
     public function renderAdminForm(string $fieldName, mixed $value): string {
-        $checked = $value === '1' ? "checked" : "";
-        return "<input type='checkbox' name='{$fieldName}' {$checked} />";
+        $checked = $value ? "checked" : "";
+        return "<pre>{$value}</pre><input type='checkbox' name='{$fieldName}' {$checked} />";
     }
 
     public function renderPreview(string $fieldName, mixed $value): string {

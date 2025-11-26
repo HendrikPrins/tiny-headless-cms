@@ -8,12 +8,8 @@ class DecimalFieldType extends FieldType {
         return 'DECIMAL(10,2)';
     }
 
-    public function saveToDb(mixed $value): string {
+    public function saveToDb(mixed $value): mixed {
         return (string)floatval($value);
-    }
-
-    public function readFromDb(string $raw): mixed {
-        return floatval($raw);
     }
 
     public function serializeToJson(mixed $value): mixed {
