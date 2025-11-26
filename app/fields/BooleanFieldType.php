@@ -9,7 +9,7 @@ class BooleanFieldType extends FieldType {
     }
 
     public function saveToDb(mixed $value): mixed {
-        return $value ? "1" : "0";
+        return $value ? 1 : 0;
     }
 
     public function serializeToJson(mixed $value): mixed {
@@ -17,12 +17,12 @@ class BooleanFieldType extends FieldType {
     }
 
     public function deserializeFromPost(array $postData, string $fieldName): mixed {
-        return isset($postData[$fieldName]) ? '1' : '0';
+        return isset($postData[$fieldName]) ? 1 : 0;
     }
 
     public function renderAdminForm(string $fieldName, mixed $value): string {
         $checked = $value ? "checked" : "";
-        return "<pre>{$value}</pre><input type='checkbox' name='{$fieldName}' {$checked} />";
+        return "<input type='checkbox' name='{$fieldName}' {$checked} />";
     }
 
     public function renderPreview(string $fieldName, mixed $value): string {
