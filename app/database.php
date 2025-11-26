@@ -172,6 +172,23 @@ class Database {
         $stmt->execute();
     }
 
+    public function updateContentTypePreview(int $id, array $fields, ?string $orderField, ?string $orderDirection): void
+    {
+        $ct = $this->getContentType($id);
+        $schema = $ct['schema'];
+        $schema['preview'] = [
+            'fields' => $fields,
+            'order_field' => $orderField,
+            'order_direction' => $orderDirection,
+        ];
+        $schemaJson = json_encode($schema, JSON_UNESCAPED_UNICODE);
+        $stmt = $this->connection->prepare('UPDATE cms_content_types SET schema = :schema WHERE id = :id');
+        $stmt->execute([
+            ':schema' => $schemaJson,
+            ':id' => $id,
+        ]);
+    }
+
     public function getContentType(int $id)
     {
         $stmt = $this->connection->prepare("SELECT id, name, is_singleton, schema FROM cms_content_types WHERE id = :id");
@@ -421,12 +438,10 @@ class Database {
                 $newSchemaFields[] = $def;
             }
 
-            $newSchema = [
-                'fields' => $newSchemaFields,
-            ];
+            $currentSchema['fields'] = $newSchemaFields;
 
             // Persist new schema on content_types
-            $schemaJson = json_encode($newSchema, JSON_UNESCAPED_UNICODE);
+            $schemaJson = json_encode($currentSchema, JSON_UNESCAPED_UNICODE);
             $stmt = $this->connection->prepare('UPDATE cms_content_types SET schema = :schema WHERE id = :id');
             $stmt->execute([
                 ':schema' => $schemaJson,
@@ -449,7 +464,7 @@ class Database {
         return $stmt->execute([':id' => $id]);
     }
 
-    public function getEntriesForContentType(array $contentType, string $locale): array
+    public function getEntriesForContentType(array $contentType, string $locale, bool $orderFieldLocalized, string $orderField, string $orderDirection): array
     {
         $table = $contentType['name'];
         $table_localized = $table . '_localized';
@@ -459,7 +474,18 @@ class Database {
                 $columns_localized[] = 'l.' . $field['name'];
             }
         }
-        $query = "SELECT b.*, " . implode(', ', $columns_localized) . " FROM {$table} b LEFT JOIN {$table_localized} l ON b.id = l.id AND l.locale = :locale WHERE 1";
+        $query = "SELECT b.*";
+        if (!empty($columns_localized)) {
+            $query .= ", " . implode(', ', $columns_localized);
+        }
+        $query .= " FROM {$table} b LEFT JOIN {$table_localized} l ON b.id = l.id AND l.locale = :locale WHERE 1";
+        if ($orderField !== '') {
+            $orderFieldEscaped = str_replace('`', '``', $orderField);
+            $orderFieldTable = $orderFieldLocalized ? 'l' : 'b';
+            $query .= " ORDER BY {$orderFieldTable}.`{$orderFieldEscaped}` " . ($orderDirection === 'desc' ? 'DESC' : 'ASC');
+        } else {
+            $query .= " ORDER BY b.id ASC";
+        }
         $stmt = $this->connection->prepare($query);
         $stmt->bindParam(':locale', $locale);
         $stmt->execute();

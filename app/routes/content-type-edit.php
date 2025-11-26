@@ -56,6 +56,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (PDOException $e) {
                 $errors[] = 'Failed to update name.';
             }
+        } elseif ($action === 'preview') {
+            $fieldsInput = trim($_POST['preview_fields'] ?? '');
+            $fields = [];
+            if ($fieldsInput !== '') {
+                $fields = array_map('trim', explode(',', $fieldsInput));
+            }
+            $orderField = $_POST['preview_order_field'] ?? null;
+            if ($orderField === '') {
+                $orderField = null;
+            }
+            $orderDirection = $_POST['preview_order_direction'] ?? 'asc';
+            try {
+                Database::getInstance()->updateContentTypePreview($id, $fields, $orderField, $orderDirection);
+                $_SESSION['flash_messages'] = ['Preview updated.'];
+                while (ob_get_level() > 0) {
+                    ob_end_clean();
+                }
+                header('Location: index.php?page=content-type-edit&id=' . $id, true, 303);
+                exit;
+            } catch (InvalidArgumentException $e) {
+                $errors[] = $e->getMessage();
+            } catch (PDOException $e) {
+                $errors[] = 'Failed to update preview.';
+            }
         } elseif ($action === 'save_all') {
             $fieldsJson = $_POST['fields'] ?? '';
             $decoded = json_decode($fieldsJson, true);
@@ -91,6 +115,14 @@ $jsFields = array_map(function ($f) {
     ];
 }, $fields);
 
+$currentPreview = [
+    "fields" => $contentType['schema']['preview']['fields'] ?? [],
+    "order_field" => $contentType['schema']['preview']['order_field'] ?? null,
+    "order_direction" => $contentType['schema']['preview']['order_direction'] ?? 'asc',
+];
+
+$previewFields = implode(',', $currentPreview['fields']);
+
 ?>
 <div class="content-header">
     <nav class="breadcrumb" aria-label="breadcrumb">
@@ -101,14 +133,6 @@ $jsFields = array_map(function ($f) {
     </nav>
     <h1>Edit Content Type: <?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?></h1>
 </div>
-
-<form method="post" class="form form-inline">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
-    <input type="hidden" name="action" value="rename">
-    <label for="new_name">Content Type Name</label>
-    <input type="text" id="new_name" name="new_name" value="<?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?>" maxlength="255" required style="min-width:260px;">
-    <button type="submit" class="btn-primary">Rename</button>
-</form>
 
 <?php if (!empty($errors)): ?>
     <div class="alert alert-danger">
@@ -181,7 +205,43 @@ $jsFields = array_map(function ($f) {
     </form>
 </div>
 
-<hr style="margin: 32px 0; border:none; border-top:1px solid #ccc;">
+<hr>
+
+<h2>Preview</h2>
+<form method="post" class="form form-inline">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="action" value="preview">
+
+    <label for="preview_fields">Fields</label>
+    <input type="text" id="preview_fields" name="preview_fields" value="<?= htmlspecialchars($previewFields, ENT_QUOTES, 'UTF-8') ?>" style="min-width:260px;">
+    <label for="preview_order_field">Order by</label>
+    <select id="preview_order_field" name="preview_order_field">
+        <option value="" <?= $currentPreview['order_field'] === null ? 'selected' : '' ?>>ID</option>
+        <?php foreach ($fields as $f): ?>
+            <option value="<?= htmlspecialchars($f['name'], ENT_QUOTES, 'UTF-8') ?>" <?= $currentPreview['order_field'] === $f['name'] ? 'selected' : '' ?>><?= htmlspecialchars($f['name'], ENT_QUOTES, 'UTF-8') ?></option>
+        <?php endforeach; ?>
+    </select>
+    <label for="preview_order_direction">Order direction</label>
+    <select id="preview_order_direction" name="preview_order_direction">
+        <option value="asc" <?= $currentPreview['order_direction'] === 'asc' ? 'selected' : '' ?>>Ascending</option>
+        <option value="desc" <?= $currentPreview['order_direction'] === 'desc' ? 'selected' : '' ?>>Descending</option>
+    </select>
+
+    <button type="submit" class="btn-primary">Save</button>
+</form>
+
+<hr>
+
+<h2>Rename</h2>
+<form method="post" class="form form-inline">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="action" value="rename">
+    <label for="new_name">Content Type Name</label>
+    <input type="text" id="new_name" name="new_name" value="<?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?>" maxlength="255" required style="min-width:260px;">
+    <button type="submit" class="btn-primary">Rename</button>
+</form>
+
+<hr>
 
 <h2>Danger Zone</h2>
 <form method="post" onsubmit="return confirm('⚠️ WARNING: This will permanently delete the content type &quot;<?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?>&quot; and ALL associated entries, fields, and field values.\n\nThis action cannot be undone.\n\nAre you sure you want to continue?');">

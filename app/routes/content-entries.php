@@ -2,10 +2,10 @@
 $db = Database::getInstance();
 $ctId = isset($_GET['ct']) ? (int)$_GET['ct'] : 0;
 if ($ctId <= 0) { echo '<h1>Content type not found</h1>'; return; }
-$ct = $db->getContentType($ctId);
-if (!$ct) { echo '<h1>Content type not found</h1>'; return; }
-$title = 'Entries for: ' . htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8');
-$isSingleton = $ct['is_singleton'];
+$contentType = $db->getContentType($ctId);
+if (!$contentType) { echo '<h1>Content type not found</h1>'; return; }
+$title = 'Entries for: ' . htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8');
+$isSingleton = $contentType['is_singleton'];
 
 // Handle delete (admins only)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     } else {
         $entryId = (int)($_POST['entry_id'] ?? 0);
         if ($entryId > 0) {
-            $db->deleteEntry($ct, $entryId);
+            $db->deleteEntry($contentType, $entryId);
             header('Location: index.php?page=content-entries&ct=' . $ctId, true, 303);
             exit;
         }
@@ -28,24 +28,63 @@ $previewLocale = $_GET['locale'] ?? '';
 if (!in_array($previewLocale, CMS_LOCALES)) {
     $previewLocale = CMS_LOCALES[0];
 }
-$entries = $db->getEntriesForContentType($ct, $previewLocale);
-$entryCount = count($entries);
-$fields = $ct["schema"]["fields"];
+$schema  = $contentType['schema'] ?? [];
+$fields  = $schema['fields'] ?? [];
+$preview = $schema['preview'] ?? [];
 
-// Determine which fields to show as preview (max 3)
-$previewFields = array_slice($fields, 0, 3);
+$previewFieldNames = $preview['fields'] ?? [];
+$previewOrderBy    = $preview['order_field'] ?? '';
+$previewOrderDir   = strtolower($preview['order_direction'] ?? '');
+
+if (!empty($previewFieldNames)) {
+    $previewFields = [];
+    foreach ($previewFieldNames as $pfName) {
+        if ($pfName === 'id') {
+            $previewFields[] = ['name' => 'id', 'type' => 'number', 'is_translatable' => false];
+            continue;
+        }
+        $matchedField = array_filter($fields, fn($f) => $f['name'] === $pfName);
+        if (!empty($matchedField)) {
+            $previewFields[] = reset($matchedField);
+        }
+    }
+}
+if (empty($previewFields)) {
+    $previewFields = array_slice($fields, 0, 3);
+    array_unshift($previewFields, ['name' => 'id', 'type' => 'number', 'is_translatable' => false]);
+}
+
+if (empty($previewOrderBy)) {
+    $previewOrderBy = 'id';
+    $previewOrderDir = 'desc';
+    $previewOrderByIsLocalized = false;
+} else {
+    foreach ($fields as $f) {
+        if ($f['name'] === $previewOrderBy) {
+            $previewOrderByIsLocalized = !empty($f['is_translatable']);
+            break;
+        }
+    }
+}
+
+if (!in_array($previewOrderDir, ['asc', 'desc'], true)) {
+    $previewOrderDir = 'desc';
+}
+
+$entries = $db->getEntriesForContentType($contentType, $previewLocale, $previewOrderByIsLocalized, $previewOrderBy, $previewOrderDir);
+$entryCount = count($entries);
 ?>
 <div class="content-header">
     <nav class="breadcrumb" aria-label="breadcrumb">
         <ol>
             <li><a href="?page=content-type"><?= $isSingleton ? 'Singletons' : 'Collections' ?></a></li>
-            <li aria-current="page">Entries: <?= htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8') ?></li>
+            <li aria-current="page">Entries: <?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?></li>
         </ol>
     </nav>
-    <h1>Entries for "<?= htmlspecialchars($ct['name'], ENT_QUOTES, 'UTF-8') ?>"</h1>
+    <h1>Entries for "<?= htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8') ?>"</h1>
 </div>
 
-<?php if ($ct['is_singleton']): ?>
+<?php if ($contentType['is_singleton']): ?>
     <?php if ($entryCount === 0): ?>
         <p>No entry yet.</p>
         <?php if (isAdmin()): ?>
@@ -66,11 +105,10 @@ $previewFields = array_slice($fields, 0, 3);
             <table>
                 <thead>
                     <tr>
-                        <th>ID</th>
                         <?php foreach ($previewFields as $field): ?>
                             <th>
                                 <?= htmlspecialchars($field['name'], ENT_QUOTES, 'UTF-8') ?>
-                                <?php if ((bool)$field['is_translatable']): ?>
+                                <?php if ($field['is_translatable']): ?>
                                     <span class="text-secondary">(<?= strtoupper($previewLocale) ?>)</span>
                                 <?php endif; ?>
                             </th>
@@ -81,17 +119,16 @@ $previewFields = array_slice($fields, 0, 3);
                 <tbody>
                 <?php foreach ($entries as $entry): ?>
                     <tr>
-                        <td>#<?= $entry['id'] ?></td>
                         <?php foreach ($previewFields as $field):
-    $value = $entry[$field['name']];
-    $fieldTypeObj = FieldRegistry::get($field['type']);
-    if ($fieldTypeObj) {
-        $displayValue = $fieldTypeObj->renderPreview($field['name'], $value);
-    } else {
-        $displayValue = htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
-    }
-?>
-                            <td><?= $displayValue ?></td>
+                            $value = $entry[$field['name']];
+                            $fieldTypeObj = FieldRegistry::get($field['type']);
+                            if ($fieldTypeObj) {
+                                $displayValue = $fieldTypeObj->renderPreview($field['name'], $value);
+                            } else {
+                                $displayValue = htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+                            }
+                        ?>
+                        <td><?= $displayValue ?></td>
                         <?php endforeach; ?>
                         <td style="white-space:nowrap;">
                             <a class="btn btn-icon btn-primary" href="?page=content-entry-edit&ct=<?= $ctId ?>&id=<?= $entry['id'] ?>"><?=ICON_PENCIL?></a>

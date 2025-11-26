@@ -106,6 +106,12 @@ footer {
     color: var(--text-secondary);
 }
 
+hr {
+    margin: 32px 0;
+    border: none;
+    border-top: 1px solid var(--border-color);
+}
+
 .table-wrapper {
     overflow-x: auto;
 }
