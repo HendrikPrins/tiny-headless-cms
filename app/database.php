@@ -280,6 +280,9 @@ class Database {
                 if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $finalName)) {
                     throw new InvalidArgumentException('Field name may only contain letters, digits, and underscores, and must not start with a digit');
                 }
+                if ($finalName === 'id') {
+                    throw new InvalidArgumentException('Field name cannot be "id"');
+                }
                 if ($finalType === null || $finalType === '') {
                     throw new InvalidArgumentException('Field type is required');
                 }
