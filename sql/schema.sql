@@ -22,6 +22,6 @@ CREATE TABLE `cms_content_types`
     `name` varchar(255) NOT NULL,
     `is_singleton` tinyint(1) NOT NULL DEFAULT '0',
     `schema` longtext NOT NULL COMMENT 'JSON-encoded schema',
-    `editor_permission_mode` varchar(32) NOT NULL DEFAULT 'read-only' COMMENT 'Editor permissions: read-only, edit-only, full-access',
+    `editor_permission` varchar(32) NOT NULL DEFAULT 'read-only' COMMENT 'Editor permissions: read-only, edit-only, full-access',
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

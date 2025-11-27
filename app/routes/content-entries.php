@@ -6,7 +6,7 @@ $contentType = $db->getContentType($ctId);
 if (!$contentType) { echo '<h1>Content type not found</h1>'; return; }
 $title = 'Entries for: ' . htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8');
 $isSingleton = $contentType['is_singleton'];
-$permission = isAdmin() ? 'full-access' : $contentType['editor_permission_mode'] ?? 'read-only';
+$permission = isAdmin() ? 'full-access' : $contentType['editor_permission'] ?? 'read-only';
 
 // Handle delete (admins only)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {

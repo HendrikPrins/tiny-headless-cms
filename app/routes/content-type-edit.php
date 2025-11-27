@@ -24,7 +24,7 @@ if (!$contentType) {
 }
 $title = 'Edit Content Type: ' . htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8');
 $isSingleton = (bool)$contentType['is_singleton'];
-$editorPermissionMode = $contentType['editor_permission_mode'] ?? 'read-only';
+$editorPermissionMode = $contentType['editor_permission'] ?? 'read-only';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } elseif ($action === 'update_editor_permissions') {
-            $mode = $_POST['editor_permission_mode'] ?? '';
+            $mode = $_POST['editor_permission'] ?? '';
             $mode = trim($mode);
             $allowed = ['read-only', 'edit-only', 'full-access'];
             if (!in_array($mode, $allowed, true)) {
@@ -256,8 +256,8 @@ $previewFields = implode(',', $currentPreview['fields']);
 <form method="post" class="form form-inline">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="update_editor_permissions">
-    <label for="editor_permission_mode">Editors can</label>
-    <select id="editor_permission_mode" name="editor_permission_mode">
+    <label for="editor_permission">Editors can</label>
+    <select id="editor_permission" name="editor_permission">
         <option value="read-only" <?= $editorPermissionMode === 'read-only' ? 'selected' : '' ?>>Read only (no editing, creating, or deleting)</option>
         <option value="edit-only" <?= $editorPermissionMode === 'edit-only' ? 'selected' : '' ?>>Read and edit existing entries only</option>
         <option value="full-access" <?= $editorPermissionMode === 'full-access' ? 'selected' : '' ?>>Read, edit, create, and delete entries</option>

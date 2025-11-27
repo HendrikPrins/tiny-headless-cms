@@ -9,7 +9,7 @@ $title = ($entryId > 0 ? 'Edit Entry: ' : 'Create Entry: ') . htmlspecialchars($
 $fields = $ct['schema']['fields'];
 $isSingleton = $ct['is_singleton'];
 
-$permission = isAdmin() ? 'full-access' : $ct['editor_permission_mode'] ?? 'read-only';
+$permission = isAdmin() ? 'full-access' : $ct['editor_permission'] ?? 'read-only';
 echo $permission;
 
 if ($entryId === 0 && $permission !== 'full-access') {
