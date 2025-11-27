@@ -10,7 +10,6 @@ $fields = $ct['schema']['fields'];
 $isSingleton = $ct['is_singleton'];
 
 $permission = isAdmin() ? 'full-access' : $ct['editor_permission'] ?? 'read-only';
-echo $permission;
 
 if ($entryId === 0 && $permission !== 'full-access') {
     http_response_code(403);
