@@ -54,6 +54,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
             }
+        } elseif ($action === 'delete_directory') {
+            $dirToDelete = $_POST['asset_directory'] ?? '';
+            $dirToDelete = trim(str_replace(['..', '\\'], ['', '/'], $dirToDelete), '/');
+            if ($dirToDelete !== '') {
+                $fullPathAbs = CMS_UPLOAD_DIR . '/' . $dirToDelete;
+                if (is_dir($fullPathAbs)) {
+                    // Ensure directory is empty
+                    $contents = array_diff(scandir($fullPathAbs), ['.', '..']);
+                    if (empty($contents)) {
+                        if (@rmdir($fullPathAbs)) {
+                            header('Location: index.php?page=assets' . (dirname($dirToDelete) !== '.' ? '&dir=' . urlencode(dirname($dirToDelete)) : ''), true, 303);
+                            exit;
+                        } else {
+                            echo '<div class="alert alert-danger">Failed to delete directory.</div>';
+                        }
+                    } else {
+                        echo '<div class="alert alert-danger">Directory is not empty.</div>';
+                    }
+                } else {
+                    echo '<div class="alert alert-danger">Directory not found.</div>';
+                }
+            } else {
+                echo '<div class="alert alert-danger">Invalid directory.</div>';
+            }
         } elseif ($action === 'create_directory') {
             $parent = $_POST['parent'] ?? '';
             $parent = trim(str_replace(['..', '\\'], ['', '/'], $parent), '/');
@@ -188,6 +212,14 @@ $assets = $db->getAssets($currentDir);
     <?php if (!empty($currentDir)): ?>
         <button type="button" onclick="showRenameDirectoryDialog()" class="btn-secondary"><?=ICON_PENCIL?> Rename Directory</button>
     <?php endif; ?>
+    <?php if (!empty($currentDir) && empty($subDirs) && empty($assets)): ?>
+        <button type="button" onclick="deleteDirectory()" class="btn-danger"><?=ICON_TRASH?> Delete Directory</button>
+        <form method="post" id="delete-dir-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES) ?>">
+            <input type="hidden" name="action" value="delete_directory">
+            <input type="hidden" name="asset_directory" value="<?=$currentDir?>">
+        </form>
+    <?php endif; ?>
 </div>
 
 <dialog id="create-directory-dialog" class="dialog">
@@ -257,9 +289,6 @@ $dirGroups = [];
 foreach ($assets as $asset) {
     $dirGroups[] = $asset;
 }
-
-// Remove duplicate $subDirs assignment; ensure we only use physical scan result
-$subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
 ?>
 
 <?php if (!empty($subDirs)): ?>
@@ -492,6 +521,12 @@ function showRenameDirectoryDialog(){
   const input = dlg.querySelector('input[name="new_dir_name"]');
   if(input) input.value='';
   dlg.showModal();
+}
+
+function deleteDirectory(){
+    if(!confirm('Delete this empty directory?')) return;
+    const form = document.getElementById('delete-dir-form');
+    if(form) form.submit();
 }
 
 function showMoveDialog(assetId, currentDir) {
