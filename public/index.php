@@ -17,9 +17,8 @@ require __DIR__ . '/../app/config.php';
 
 $isLoggedIn = isset($_SESSION['user_id']);
 
-$page = $_GET['page'] ?? 'dashboard';
+$page = $_GET['page'] ?? 'content-type';
 $routes = [
-    "dashboard",
     "content-type",
     "content-type-create",
     "content-type-edit",

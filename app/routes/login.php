@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_username'] = $user['username'];
             $_SESSION['user_role'] = $user['role'];
-            header('Location: index.php?page=dashboard', true, 303);
+            header('Location: index.php', true, 303);
             exit;
         } else {
             $errors[] = 'Invalid username or password.';

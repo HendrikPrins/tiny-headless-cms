@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="card">
     <form method="post" action="index.php" class="form-container">
         <h1>Register</h1>
-        <p>Please create your admin account via the form below. Any additional users can be created later from the dashboard.</p>
+        <p>Please create your admin account via the form below. Any additional users can be created later.</p>
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES); ?>">
         <input type="text" name="username" placeholder="Username" required value="<?php echo htmlspecialchars($_POST['username'] ?? '', ENT_QUOTES); ?>">
         <input type="password" name="password" placeholder="Password" required>
