@@ -225,6 +225,10 @@ $previewFields = implode(',', $currentPreview['fields']);
     </form>
 </div>
 
+
+<?php
+if (!$isSingleton):
+?>
 <hr>
 
 <h2>Preview</h2>
@@ -249,7 +253,9 @@ $previewFields = implode(',', $currentPreview['fields']);
 
     <button type="submit" class="btn-primary">Save</button>
 </form>
-
+<?php
+endif;
+?>
 <hr>
 
 <h2>Editor Permissions</h2>
