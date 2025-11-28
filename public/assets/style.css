@@ -561,14 +561,15 @@ nav.breadcrumb ol li + li::before {
     box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15);
 }
 
-.drop-zone-line1 {
+.drop-zone-line1, .drop-zone-line2 {
     margin: 0;
+    font-size: 0.9em;
+    font-weight: bold;
 }
 
 .drop-zone-line2 {
     margin-top: 8px;
-    font-size: 0.9em;
-    color: var(--text-secondary);
+    color: var(--color-danger);
 }
 
 .drop-zone--dragover {

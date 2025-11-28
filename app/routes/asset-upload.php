@@ -67,33 +67,62 @@ if ($action === 'upload_chunk') {
         $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $baseName);
         if ($safeName === '') { $safeName = 'file'; }
         $extSuffix = $ext ? '.' . $ext : '';
-        // Determine target directory first so we can test existing filenames there
-        $targetDir = $uploadDir;
-        if (!empty($directory)) {
-            $safeDir = trim(str_replace(['..', '\\'], ['', '/'], $directory), '/');
-            if (!empty($safeDir)) {
-                $targetDir = $uploadDir . '/' . $safeDir;
-                if (!is_dir($targetDir)) {
-                    mkdir($targetDir, 0755, true);
-                }
-            }
-        }
-        // Try original filename first
-        $candidate = $safeName . $extSuffix;
-        $finalFilename = $candidate;
-        if (file_exists($targetDir . '/' . $finalFilename)) {
-            $i = 2;
-            while (file_exists($targetDir . '/' . $safeName . '_' . $i . $extSuffix)) {
-                $i++;
-                // Simple guard to avoid infinite loop (very unlikely)
-                if ($i > 100000) { break; }
-            }
-            $finalFilename = $safeName . '_' . $i . $extSuffix;
-        }
-        $finalPath = $targetDir . '/' . $finalFilename;
-        $relativePath = !empty($directory) ? $directory . '/' . $finalFilename : $finalFilename;
 
-        $output = fopen($finalPath, 'wb');
+        // Normalize directory (same rules as assets listing)
+        $safeDir = trim(str_replace(['..', '\\'], ['', '/'], $directory), '/');
+        $directory = $safeDir; // normalized value for DB
+
+        // Determine target directory on disk
+        $targetDir = $uploadDir;
+        if (!empty($safeDir)) {
+            $targetDir = $uploadDir . '/' . $safeDir;
+            if (!is_dir($targetDir)) {
+                mkdir($targetDir, 0755, true);
+            }
+        }
+
+        // Intended filename (based on original); this is what we will use for overwrite detection
+        $intendedFilename = $safeName . $extSuffix;
+
+        // Check if an asset with this directory + filename already exists
+        $existingAsset = $db->getAssetByDirectoryAndFilename($directory, $intendedFilename);
+
+        $overwriting = false;
+        $finalFilename = $intendedFilename;
+        $finalPath = '';
+        $relativePath = '';
+        $assetId = null;
+
+        if ($existingAsset) {
+            // Overwrite existing asset: keep id/path/name
+            $overwriting = true;
+            $assetId = (int)$existingAsset['id'];
+            $finalFilename = $existingAsset['filename'];
+            $relativePath = $existingAsset['path'];
+            $finalPath = $uploadDir . '/' . $relativePath;
+
+            // Ensure directory exists on disk (could have been removed manually)
+            $existingDir = dirname($finalPath);
+            if (!is_dir($existingDir)) {
+                mkdir($existingDir, 0755, true);
+            }
+        } else {
+            $targetDirForNew = $targetDir;
+            if (file_exists($targetDirForNew . '/' . $finalFilename)) {
+                $i = 2;
+                while (file_exists($targetDirForNew . '/' . $safeName . '_' . $i . $extSuffix)) {
+                    $i++;
+                    if ($i > 100000) { break; }
+                }
+                $finalFilename = $safeName . '_' . $i . $extSuffix;
+            }
+            $finalPath = $targetDirForNew . '/' . $finalFilename;
+            $relativePath = !empty($directory) ? $directory . '/' . $finalFilename : $finalFilename;
+        }
+
+        // Assemble chunks into a temporary file first
+        $tempFinalPath = $finalPath . '.tmp_' . bin2hex(random_bytes(6));
+        $output = fopen($tempFinalPath, 'wb');
         if (!$output) {
             http_response_code(500);
             echo json_encode(['error' => 'Failed to create final file']);
@@ -104,7 +133,7 @@ if ($action === 'upload_chunk') {
             $chunkFile = $tempDir . '/' . $safeIdentifier . '_' . $i;
             if (!file_exists($chunkFile)) {
                 fclose($output);
-                @unlink($finalPath);
+                @unlink($tempFinalPath);
                 http_response_code(500);
                 echo json_encode(['error' => 'Missing chunk ' . $i]);
                 exit;
@@ -116,18 +145,45 @@ if ($action === 'upload_chunk') {
         }
         fclose($output);
 
+        // Now move temp assembled file into place (overwrite if needed)
+        $moveOk = false;
+        if (@rename($tempFinalPath, $finalPath)) {
+            $moveOk = true;
+        } else {
+            // Fallback: try unlink existing then rename
+            if (file_exists($finalPath)) {
+                @unlink($finalPath);
+            }
+            if (@rename($tempFinalPath, $finalPath)) {
+                $moveOk = true;
+            }
+        }
+
+        if (!$moveOk) {
+            @unlink($tempFinalPath);
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to move final file into place']);
+            exit;
+        }
+
         $fileSize = @filesize($finalPath);
         $mimeType = @mime_content_type($finalPath);
 
-        // Store the final (unique) filename in the DB so listing matches actual file
-        $assetId = $db->createAsset($finalFilename, $relativePath, $mimeType, $fileSize, $directory);
+        if ($overwriting) {
+            // Update existing asset metadata only
+            $db->updateAssetMetadata($assetId, $mimeType, $fileSize);
+        } else {
+            // Store the final (unique) filename in the DB so listing matches actual file
+            $assetId = $db->createAsset($finalFilename, $relativePath, $mimeType, $fileSize, $directory);
+        }
 
         echo json_encode([
             'success' => true,
             'asset_id' => $assetId,
             'filename' => $finalFilename,
             'size' => $fileSize,
-            'mime_type' => $mimeType
+            'mime_type' => $mimeType,
+            'overwritten' => $overwriting,
         ]);
     } else {
         echo json_encode([

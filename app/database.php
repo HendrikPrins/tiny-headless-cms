@@ -1193,6 +1193,33 @@ class Database {
     }
 
     /**
+     * Get a single asset by directory and filename combination.
+     * Directory is stored trimmed (no leading/trailing slash); empty string represents the root.
+     */
+    public function getAssetByDirectoryAndFilename(string $directory, string $filename): ?array
+    {
+        $directory = trim($directory, '/');
+        $stmt = $this->connection->prepare("SELECT id, filename, path, directory, mime_type, size, created_at FROM cms_assets WHERE directory = :dir AND filename = :filename LIMIT 1");
+        $stmt->bindParam(':dir', $directory);
+        $stmt->bindParam(':filename', $filename);
+        $stmt->execute();
+        $result = $stmt->fetch();
+        return $result ?: null;
+    }
+
+    /**
+     * Update asset metadata (mime type, size) without changing its identity, path or directory.
+     */
+    public function updateAssetMetadata(int $id, ?string $mimeType, ?int $size): bool
+    {
+        $stmt = $this->connection->prepare("UPDATE cms_assets SET mime_type = :mime, size = :size WHERE id = :id");
+        $stmt->bindParam(':mime', $mimeType);
+        $stmt->bindParam(':size', $size, PDO::PARAM_INT);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
+
+    /**
      * Get all assets
      */
     public function getAssets(?string $directory = null): array

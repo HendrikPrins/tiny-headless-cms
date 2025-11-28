@@ -283,7 +283,7 @@ $subDirs = listImmediateSubdirectories(CMS_UPLOAD_DIR, $currentDir);
     <h3 class="section-title">Upload Files<?= !empty($currentDir) ? ' to ' . htmlspecialchars($currentDir, ENT_QUOTES, 'UTF-8') : '' ?></h3>
     <div id="drop-zone" class="drop-zone" tabindex="0">
         <p class="drop-zone-line1">Drag and drop files here or click to select</p>
-        <p class="drop-zone-line2">Supports images, PDFs, ZIP files, and more</p>
+        <p class="drop-zone-line2">Existing files with the same name will be overwritten</p>
     </div>
     <input type="file" id="file-input" multiple class="hidden-input">
     <input type="hidden" id="current-directory" value="<?= htmlspecialchars($currentDir, ENT_QUOTES, 'UTF-8') ?>">
