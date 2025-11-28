@@ -176,7 +176,7 @@ td.table-nowrap {
 .form {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 20px;
 }
 
 .form-limited {
@@ -374,6 +374,8 @@ nav.breadcrumb ol li + li::before {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    border-left: 2px solid var(--border-color);
+    padding-left: 1em;
 }
 
 .field > .label {
