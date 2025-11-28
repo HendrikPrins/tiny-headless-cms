@@ -1,6 +1,6 @@
 class ImageAssetTool {
     static get toolbox() {
-        return { title: 'Image', icon: '<svg width="17" height="15" viewBox="0 0 17 15" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 0h14c.83 0 1.5.67 1.5 1.5v12c0 .83-.67 1.5-1.5 1.5h-14C.67 15 0 14.33 0 13.5v-12C0 .67.67 0 1.5 0zm0 1.5v9.78l3.2-3.2a1.5 1.5 0 012.12 0l2.9 2.9 3.95-3.95a1.5 1.5 0 012.13 0l.6.6V1.5h-14zM15.5 13.5v-4.09l-1.02-1.02-4.48 4.48a1.5 1.5 0 01-2.12 0l-2.9-2.9-3.48 3.48h14zM5.25 6A1.75 1.75 0 107.75 6 1.75 1.75 0 005.25 6z" fill="currentColor"/></svg>' };
+        return { title: 'Image', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 8h.01" /><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z" /><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></svg>' };
     }
     constructor({ data, api, config }) {
         this.data = data || { assetId: null, url: '', filename: '', alt: '', caption: '' };
