@@ -112,6 +112,7 @@ trait AssetFieldCommon {
         $fieldIdBase = $baseIdPrefix . '_' . md5($fieldName);
         $hiddenId = $fieldIdBase . '_hidden';
         $buttonId = $fieldIdBase . '_btn';
+        $clearId = $fieldIdBase . '_clear';
         $previewId = $fieldIdBase . '_preview';
         $altId = $fieldIdBase . '_alt';
 
@@ -126,6 +127,11 @@ trait AssetFieldCommon {
                     class="btn-secondary <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-pick-btn"
                     id="<?= htmlspecialchars($buttonId, ENT_QUOTES, 'UTF-8') ?>">
                 <?= $data['url'] ? $buttonLabelChange : $buttonLabelSelect ?>
+            </button>
+            <button type="button"
+                    class="btn-secondary <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-clear-btn"
+                    id="<?= htmlspecialchars($clearId, ENT_QUOTES, 'UTF-8') ?>">
+                Clear
             </button>
             <div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-preview" id="<?= htmlspecialchars($previewId, ENT_QUOTES, 'UTF-8') ?>">
                 <?php if ($data['url']): ?>
@@ -159,10 +165,12 @@ trait AssetFieldCommon {
         (function() {
             const hiddenId = <?= json_encode($hiddenId) ?>;
             const buttonId = <?= json_encode($buttonId) ?>;
+            const clearId = <?= json_encode($clearId) ?>;
             const previewId = <?= json_encode($previewId) ?>;
             const altId = <?= json_encode($altId) ?>;
             const hiddenInput = document.getElementById(hiddenId);
             const button = document.getElementById(buttonId);
+            const clearBtn = document.getElementById(clearId);
             const preview = document.getElementById(previewId);
             const altInput = <?= $showAltInput ? 'document.getElementById(altId)' : 'null' ?>;
             if (!hiddenInput || !button || !preview) return;
@@ -182,6 +190,7 @@ trait AssetFieldCommon {
                 if (!data || !data.url) {
                     preview.innerHTML = '<span class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-placeholder asset-field-placeholder">No <?= $this->labelForSingle() ?> selected.</span>';
                     button.textContent = <?= json_encode($buttonLabelSelect) ?>;
+                    if (clearBtn) clearBtn.disabled = true;
                     return;
                 }
                 const filename = data.filename || (function(){ try { return data.url.split('/').pop(); } catch(e){ return ''; } })();
@@ -194,6 +203,7 @@ trait AssetFieldCommon {
                 html += '</div>';
                 preview.innerHTML = html;
                 button.textContent = <?= json_encode($buttonLabelChange) ?>;
+                if (clearBtn) clearBtn.disabled = false;
             }
             function openPicker() {
                 if (!window.CMSImageAssetPicker || !window.CMSImageAssetPicker.openPicker) return;
@@ -212,11 +222,21 @@ trait AssetFieldCommon {
                     updatePreview(data);
                 }, { manual: true, sourceButton: button<?= $defaultFilter ? ', defaultFilter: ' . json_encode($defaultFilter) : '' ?> });
             }
+            function clearSelection() {
+                // clear to empty state
+                hiddenInput.value = '';
+                if (altInput) altInput.value = '';
+                updatePreview({});
+            }
+
             const initial = parseValue();
             if (altInput && initial.alt) {
                 altInput.value = initial.alt;
             }
             updatePreview(initial);
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function(){ clearSelection(); });
+            }
             button.addEventListener('mousedown', function(e){ if (e.button !== 0 || e.target !== button) return; openPicker(); });
             button.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openPicker(); }});
             if (altInput) {
@@ -239,6 +259,7 @@ trait AssetFieldCommon {
         $fieldIdBase = $baseIdPrefix . '_' . md5($fieldName);
         $hiddenId = $fieldIdBase . '_hidden';
         $buttonId = $fieldIdBase . '_btn';
+        $clearAllId = $fieldIdBase . '_clear';
         $listId = $fieldIdBase . '_list';
 
         ob_start();
@@ -253,15 +274,22 @@ trait AssetFieldCommon {
                     id="<?= htmlspecialchars($buttonId, ENT_QUOTES, 'UTF-8') ?>">
                 <?= $buttonLabel ?>
             </button>
+            <button type="button"
+                    class="btn-danger <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-clear-all-btn"
+                    id="<?= htmlspecialchars($clearAllId, ENT_QUOTES, 'UTF-8') ?>">
+                Clear all
+            </button>
             <div class="<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-list asset-multi-list" id="<?= htmlspecialchars($listId, ENT_QUOTES, 'UTF-8') ?>"></div>
         </div>
         <script>
         (function(){
             const hiddenId = <?= json_encode($hiddenId) ?>;
             const buttonId = <?= json_encode($buttonId) ?>;
+            const clearAllId = <?= json_encode($clearAllId) ?>;
             const listId = <?= json_encode($listId) ?>;
             const hiddenInput = document.getElementById(hiddenId);
             const button = document.getElementById(buttonId);
+            const clearAllBtn = document.getElementById(clearAllId);
             const listEl = document.getElementById(listId);
             if (!hiddenInput || !button || !listEl) return;
 
@@ -270,7 +298,8 @@ trait AssetFieldCommon {
             function save(items){ hiddenInput.value = JSON.stringify(items || []); }
             function render(items){
                 listEl.innerHTML = '';
-                if (!items.length){ listEl.innerHTML = '<span class="asset-field-placeholder">No <?= $this->labelForMulti() ?> selected.</span>'; return; }
+                if (!items.length){ listEl.innerHTML = '<span class="asset-field-placeholder">No <?= $this->labelForMulti() ?> selected.</span>'; if (clearAllBtn) clearAllBtn.disabled = true; return; }
+                if (clearAllBtn) clearAllBtn.disabled = false;
                 items.forEach(function(item, idx){
                     const row = document.createElement('div');
                     row.className = '<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-item asset-multi-item';
@@ -329,6 +358,12 @@ trait AssetFieldCommon {
             }
             render(parseValue());
             button.addEventListener('click', function(){ openPicker(); });
+            if (clearAllBtn) {
+                clearAllBtn.addEventListener('click', function(){
+                    save([]);
+                    render([]);
+                });
+            }
             listEl.addEventListener('click', function(e){
                 const row = e.target.closest('.<?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-item');
                 if (!row) return;
