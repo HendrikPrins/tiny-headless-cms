@@ -275,7 +275,7 @@ trait AssetFieldCommon {
                 <?= $buttonLabel ?>
             </button>
             <button type="button"
-                    class="btn-danger <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-clear-all-btn"
+                    class="btn-secondary <?= htmlspecialchars($baseIdPrefix, ENT_QUOTES, 'UTF-8') ?>-field-clear-all-btn"
                     id="<?= htmlspecialchars($clearAllId, ENT_QUOTES, 'UTF-8') ?>">
                 Clear all
             </button>

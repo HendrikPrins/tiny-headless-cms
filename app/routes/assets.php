@@ -515,7 +515,7 @@ function showRenameDirectoryDialog(){
   const dlg = document.getElementById('rename-directory-dialog');
   if(!dlg) return;
   const input = dlg.querySelector('input[name="new_dir_name"]');
-  if(input) input.value='';
+  if(input) input.value='<?= htmlspecialchars(basename($currentDir), ENT_QUOTES) ?>';
   dlg.showModal();
 }
 

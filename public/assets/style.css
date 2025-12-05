@@ -416,6 +416,7 @@ nav.breadcrumb ol li + li::before {
     display: block;
     object-fit: cover;
     border-radius: 4px;
+    margin-top: 0.5rem;
 }
 
 .asset-alt-wrapper {
@@ -472,10 +473,15 @@ nav.breadcrumb ol li + li::before {
 }
 
 .dialog {
+    margin: auto;
     border: none;
     border-radius: 8px;
     padding: 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dialog h2 {
+    margin-top: 0;
 }
 
 .dialog::backdrop {
