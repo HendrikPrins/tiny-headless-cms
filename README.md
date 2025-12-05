@@ -256,3 +256,7 @@ This demonstrates that the translatable fields are stored in a separate table, w
 
 ## Extensibility
 You can easily add your own field types by adding your own file to `/app/fields/` that extends the base `FieldType` class. See existing field classes for examples.
+
+## License
+
+Tiny Headless CMS is open-source software licensed under the [MIT license](./LICENSE).
