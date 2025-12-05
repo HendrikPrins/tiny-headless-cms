@@ -361,10 +361,6 @@ foreach ($assets as $asset) {
                                title="View/Download"><?=ICON_EYE?></a>
                             <button type="button"
                                     class="btn btn-icon btn-light"
-                                    onclick="copyToClipboard('/uploads/<?= htmlspecialchars($asset['path'], ENT_QUOTES, 'UTF-8') ?>')"
-                                    title="Copy URL"><?=ICON_LINK?></button>
-                            <button type="button"
-                                    class="btn btn-icon btn-light"
                                     onclick="showMoveDialog(<?= (int)$asset['id'] ?>, '<?= htmlspecialchars($asset['directory'], ENT_QUOTES, 'UTF-8') ?>')"
                                     title="Move"><?=ICON_FILE_ARROW_RIGHT?></button>
                             <form method="post" class="d-inline" onsubmit="return confirm('Delete this asset?');">
@@ -535,16 +531,6 @@ function showMoveDialog(assetId, currentDir) {
     const select = document.getElementById('move-directory-select');
     select.value = currentDir;
     dialog.showModal();
-}
-
-function copyToClipboard(text) {
-    const fullUrl = window.location.origin + text;
-    navigator.clipboard.writeText(fullUrl).then(() => {
-        alert('URL copied to clipboard: ' + fullUrl);
-    }).catch(err => {
-        console.error('Failed to copy:', err);
-        prompt('Copy this URL:', fullUrl);
-    });
 }
 </script>
 
