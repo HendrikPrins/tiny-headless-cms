@@ -6,6 +6,7 @@ $contentType = $db->getContentType($ctId);
 if (!$contentType) { echo '<h1>Content type not found</h1>'; return; }
 $title = 'Entries for: ' . htmlspecialchars($contentType['name'], ENT_QUOTES, 'UTF-8');
 $isSingleton = $contentType['is_singleton'];
+$isAdmin = isAdmin();
 $permission = isAdmin() ? 'full-access' : $contentType['editor_permission'] ?? 'read-only';
 
 // Handle delete (admins only)
@@ -97,7 +98,12 @@ $entryCount = count($entries);
     <?php endif; ?>
 <?php else: ?>
     <?php if ($permission === 'full-access'): ?>
-    <p><a class="btn btn-primary" href="?page=content-entry-edit&ct=<?= (int)$ctId ?>">New Entry</a></p>
+    <p>
+        <a class="btn btn-primary" href="?page=content-entry-edit&ct=<?= (int)$ctId ?>">New Entry</a>
+        <?php if ($isAdmin): ?>
+            <a class="btn btn-secondary" href="?page=content-type-edit&id=<?= (int)$ctId ?>">Edit Content Type</a>
+        <?php endif; ?>
+    </p>
     <?php endif; ?>
     <?php if (empty($entries)): ?>
         <p>No entries yet.</p>
