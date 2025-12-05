@@ -112,6 +112,10 @@ hr {
     border-top: 1px solid var(--border-color);
 }
 
+ul {
+    margin-left: 1rem;
+}
+
 .table-wrapper {
     overflow-x: auto;
 }

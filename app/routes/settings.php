@@ -67,4 +67,16 @@ document.getElementById('logout-btn').addEventListener('click', function() {
 <?php endif; ?>
 
 <h2>Locales</h2>
-Add/remove locales.
+You can edit locales in <code>CMS_LOCALES</code> in the file <code>app/config.php</code> Please note that the first locale is the primary locale, which is important when changing fields from translatable to non-translatable.<br>
+<br>
+Enabled locales:
+<ul>
+<?php foreach (CMS_LOCALES as $locale): ?>
+    <li><strong><code><?php echo htmlspecialchars($locale, ENT_QUOTES, 'UTF-8'); ?></code></strong>
+        <?php if ($locale === CMS_LOCALES[0]): ?>
+            (primary)
+        <?php endif; ?>
+    </li>
+<?php endforeach; ?>
+</ul>
+
