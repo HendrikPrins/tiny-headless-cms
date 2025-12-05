@@ -205,6 +205,13 @@ $previewFields = implode(',', $currentPreview['fields']);
             </tr>
             </thead>
             <tbody></tbody>
+            <tfoot>
+            <tr>
+                <td colspan="4">
+                    <button type="button" id="add-field-btn" class="btn-primary">Add Field</button>
+                </td>
+            </tr>
+            </tfoot>
         </table>
     </div>
 
@@ -219,7 +226,6 @@ $previewFields = implode(',', $currentPreview['fields']);
         <input type="hidden" name="fields" id="fields_input">
         <div class="form-buttons">
             <button type="button" id="save-all-btn" class="btn-primary">Save All</button>
-            <button type="button" id="add-field-btn" class="btn-primary">Add Field</button>
             <a href="?page=content-type" class="btn-secondary">Cancel</a>
         </div>
     </form>
@@ -326,7 +332,7 @@ endif;
                 const orig = findOriginalByName(name);
                 if (orig) {
                     changes.push({
-                        type: 'deleted',
+                        action: 'deleted',
                         originalName: name,
                         name: orig.name
                     });
@@ -352,18 +358,18 @@ endif;
 
                     if (fieldChanges.length > 0) {
                         changes.push({
-                            type: 'modified',
+                            action: 'modified',
                             originalName: field.originalName,
                             name: field.name,
                             changes: fieldChanges
                         });
                     }
                 } else if (field.name) {
-                    // New field
+                    // New field — use distinct keys so we don't overwrite the change 'action'
                     changes.push({
-                        type: 'new',
+                        action: 'new',
                         name: field.name,
-                        type: field.type
+                        fieldType: field.type
                     });
                 }
             });
@@ -388,15 +394,17 @@ endif;
                 const item = document.createElement('div');
                 item.style.cssText = 'margin-bottom:8px; padding:8px; border-radius:4px; border-left:4px solid #007bff;';
 
-                if (change.type === 'new') {
-                    item.innerHTML = `<strong>➕ New field:</strong> ${escapeHtml(change.name)} (${change.type})`;
+                if (change.action === 'new') {
+                    item.innerHTML = `<strong>New field:</strong> ${escapeHtml(change.name)} (${escapeHtml(change.fieldType || '')})`;
                     item.style.borderLeftColor = '#28a745';
-                } else if (change.type === 'deleted') {
-                    item.innerHTML = `<strong>🗑️ Deleted:</strong> ${escapeHtml(change.name)} <button type="button" class="btn-secondary" style="margin-left:8px; padding:2px 8px; font-size:0.85em;" data-undelete="${change.originalName}">Undo Delete</button>`;
+                } else if (change.action === 'deleted') {
+                    item.innerHTML = `<strong>Deleted:</strong> ${escapeHtml(change.name)} <button type="button" class="btn-secondary" style="margin-left:8px; padding:2px 8px; font-size:0.85em;" data-undelete="${change.originalName}">Undo Delete</button>`;
                     item.style.borderLeftColor = '#dc3545';
-                } else if (change.type === 'modified') {
-                    item.innerHTML = `<strong>✏️ Modified:</strong> ${escapeHtml(change.name)}<ul style="margin:4px 0 0 20px; padding:0;">${change.changes.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`;
+                } else if (change.action === 'modified') {
+                    item.innerHTML = `<strong>Modified:</strong> ${escapeHtml(change.name)}<ul style="margin:4px 0 0 20px; padding:0;">${change.changes.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`;
                     item.style.borderLeftColor = '#ffc107';
+                } else {
+                    item.innerHTML = `<strong>Unknown change:</strong> ${escapeHtml(JSON.stringify(change))}`;
                 }
 
                 changesList.appendChild(item);
