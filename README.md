@@ -1,12 +1,23 @@
 # Tiny Headless CMS
 
+A simple and lightweight headless CMS built with PHP and MySQL/MariaDB. It provides an easy way to manage collections, singletons, and assets, along with internationalization (i18n) support.
+
 ## Features
 
 - Easy installation and minimal dependencies.
 - Easy-to-use interface for managing collections, singletons, and assets.
 - Internationalization (i18n) support for multiple languages. Collections and singletons can have localized fields.
 - Simple database schema, suitable for direct consumption by (front-end) applications.
-- Properties are saved in a key-value like format for flexibility and simplicity.
+
+1. **Collections**: Structured data similar to database tables. Each collection has a defined schema and contains multiple entries.
+2. **Singletons**: Unique data entities that exist as a single instance, such as site settings or homepage content.
+3. **Assets**: Media files like images, videos, and documents that can be uploaded and managed within the CMS.
+
+## Requirements
+
+- PHP 7.4 or higher
+- MySQL 5.7 or higher / MariaDB 10.2 or higher
+- Apache or nginx web server
 
 ## Installation (Apache/nginx)
 
@@ -22,6 +33,7 @@
 
 - Keep `.env` and `/app` outside the web root.
 - If you cannot change document root, use the included `.htaccess` to block access to sensitive files.
+- When visiting the CMS for the first time, create a new admin user. Any additional users can be created via Settings → Users. If you forget your password, you can reset it via the database (bcrypt).
 
 
 ## Installation (Docker)
@@ -107,8 +119,8 @@ The shape of localized fields depends on how many locales you request:
     {
       "data": {
         "id": 1,
-        "title": "Inzicht in energie.",
-        "summary": "CEMM biedt krachtige functies..."
+        "title": "A title",
+        "summary": "A description..."
       }
     }
     ```
@@ -118,7 +130,7 @@ The shape of localized fields depends on how many locales you request:
     {
       "data": {
         "id": 1,
-        "title": { "nl": "Inzicht in energie.", "en": "Insight into energy." }
+        "title": { "nl": "Een titel.", "en": "A title." }
       }
     }
     ```
