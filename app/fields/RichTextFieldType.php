@@ -48,6 +48,7 @@ class RichTextFieldType extends FieldType {
         <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest"></script>
         <script src="https://cdn.jsdelivr.net/npm/@editorjs/code@latest"></script>
         <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest"></script>
         <script src="/assets/editorjs-image-tool.js"></script>
         <?php
         return ob_get_clean();
@@ -90,7 +91,8 @@ class RichTextFieldType extends FieldType {
                         delimiter: Delimiter,
                         code: CodeTool,
                         table: Table,
-                        imageAsset: { class: ImageAssetTool, inlineToolbar: false, config: { onDataChange: function(){ editor.save().then(function(outputData){ hiddenInput.value = JSON.stringify(outputData); }).catch(function(err){ console.error('Immediate save error', err); }); } } }
+                        imageAsset: { class: ImageAssetTool, inlineToolbar: false, config: { onDataChange: function(){ editor.save().then(function(outputData){ hiddenInput.value = JSON.stringify(outputData); }).catch(function(err){ console.error('Immediate save error', err); }); } } },
+                        inlineCode: InlineCode,
                     },
                     onChange: function() {
                         editor.save().then(function(outputData) { hiddenInput.value = JSON.stringify(outputData); }).catch(function(error) { console.error('EditorJS save error', error); });
